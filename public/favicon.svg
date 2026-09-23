@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background tile -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="#38bdf8" stroke-width="6" stroke-opacity="0.4"/>
+
+  <!-- Isometric Rubik's Cube Faces -->
+  <g transform="translate(256, 256) scale(1.05)">
+    <!-- Top Face (White/Yellow tone isometric) -->
+    <!-- Center top -->
+    <path d="M 0 -130 L 60 -95 L 0 -60 L -60 -95 Z" fill="#ffffff" stroke="#0f172a" stroke-width="4"/>
+    <!-- Top left -->
+    <path d="M -65 -92 L -5 -57 L -65 -22 L -125 -57 Z" fill="#38bdf8" stroke="#0f172a" stroke-width="4"/>
+    <!-- Top right -->
+    <path d="M 5 -57 L 65 -92 L 125 -57 L 65 -22 Z" fill="#facc15" stroke="#0f172a" stroke-width="4"/>
+    
+    <!-- Left Face (Orange/Green tone) -->
+    <path d="M -125 -50 L -65 -15 L -65 55 L -125 20 Z" fill="#ea580c" stroke="#0f172a" stroke-width="4"/>
+    <path d="M -60 -12 L 0 23 L 0 93 L -60 58 Z" fill="#22c55e" stroke="#0f172a" stroke-width="4"/>
+    <path d="M -125 25 L -65 60 L -65 130 L -125 95 Z" fill="#ef4444" stroke="#0f172a" stroke-width="4"/>
+    <path d="M -60 63 L 0 98 L 0 168 L -60 133 Z" fill="#ea580c" stroke="#0f172a" stroke-width="4"/>
+
+    <!-- Right Face (Blue/Red tone) -->
+    <path d="M 0 23 L 60 -12 L 60 58 L 0 93 Z" fill="#3b82f6" stroke="#0f172a" stroke-width="4"/>
+    <path d="M 65 -15 L 125 -50 L 125 20 L 65 55 Z" fill="#ef4444" stroke="#0f172a" stroke-width="4"/>
+    <path d="M 0 98 L 60 63 L 60 133 L 0 168 Z" fill="#ffffff" stroke="#0f172a" stroke-width="4"/>
+    <path d="M 65 60 L 125 25 L 125 95 L 65 130 Z" fill="#3b82f6" stroke="#0f172a" stroke-width="4"/>
+  </g>
+</svg>

@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --bg-canvas: #000000;
+    --bg-surface: #050505;
+    --bg-card: #0c0c0c;
+    --bg-elevated: #151515;
+    --border-subtle: rgba(255, 255, 255, 0.12);
+    --border-strong: rgba(255, 255, 255, 0.25);
+    --text-primary: #ffffff;
+    --text-secondary: #d4d4d8;
+    --text-muted: #a1a1aa;
+  }
+  
+  html, body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    @apply antialiased min-h-screen font-sans select-none;
+    overflow-x: hidden;
+    transition: background-color 0.2s ease;
+  }
+
+  #root {
+    @apply min-h-screen flex flex-col w-full max-w-none m-0 p-0 text-left border-none;
+  }
+}
+
+/* Monochrome panel styles */
+.mono-surface {
+  background-color: var(--bg-surface);
+  border-color: var(--border-subtle);
+}
+
+.mono-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.mono-card:hover {
+  border-color: var(--border-strong);
+}
+
+.mono-elevated {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+}
+
+/* White highlight pulse */
+@keyframes white-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), inset 0 0 10px rgba(255, 255, 255, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.7), inset 0 0 15px rgba(255, 255, 255, 0.35);
+  }
+}
+
+.glow-active {
+  animation: white-pulse 1.8s infinite ease-in-out;
+}
+
+/* Custom slim monochrome scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-canvas);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
