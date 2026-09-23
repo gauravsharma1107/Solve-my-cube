@@ -57,6 +57,11 @@ export const ScrambleAndTimer: React.FC<ScrambleAndTimerProps> = ({
   const holdTimerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
+  const timerStateRef = useRef<'idle' | 'holding' | 'ready' | 'timing'>('idle');
+
+  useEffect(() => {
+    timerStateRef.current = timerState;
+  }, [timerState]);
 
   const newScramble = () => {
     const s = generateWcaScramble();
@@ -68,44 +73,11 @@ export const ScrambleAndTimer: React.FC<ScrambleAndTimerProps> = ({
     onOpen3DSolver();
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && e.target === document.body) {
-        e.preventDefault();
-        if (timerState === 'timing') {
-          stopTimer();
-        } else if (timerState === 'idle') {
-          setTimerState('holding');
-          holdTimerRef.current = window.setTimeout(() => {
-            setTimerState('ready');
-          }, 350);
-        }
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && e.target === document.body) {
-        e.preventDefault();
-        if (timerState === 'ready') {
-          startTimer();
-        } else if (timerState === 'holding') {
-          if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-          setTimerState('idle');
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-    };
-  }, [timerState]);
-
   const startTimer = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
     startTimeRef.current = performance.now();
     setTimerState('timing');
 
@@ -119,12 +91,121 @@ export const ScrambleAndTimer: React.FC<ScrambleAndTimerProps> = ({
   const stopTimer = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
     const finalTime = performance.now() - startTimeRef.current;
     setElapsedTime(finalTime);
     setSolveTimes(prev => [finalTime, ...prev]);
     setTimerState('idle');
     newScramble();
+  };
+
+  const handleResetTimer = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    setElapsedTime(0);
+    setTimerState('idle');
+  };
+
+  // Spacebar and keyboard shortcut handling (no document.body restriction)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (timerStateRef.current === 'timing') {
+          stopTimer();
+        } else if (timerStateRef.current === 'idle') {
+          setTimerState('holding');
+          holdTimerRef.current = window.setTimeout(() => {
+            setTimerState('ready');
+          }, 300);
+        }
+      } else if (timerStateRef.current === 'timing') {
+        // Any key stops the timer when running
+        e.preventDefault();
+        stopTimer();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (timerStateRef.current === 'ready' || timerStateRef.current === 'holding') {
+          if (holdTimerRef.current) {
+            clearTimeout(holdTimerRef.current);
+            holdTimerRef.current = null;
+          }
+          startTimer();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, []);
+
+  // When timer is running, any screen tap / touch instantly stops the timer
+  useEffect(() => {
+    if (timerState !== 'timing') return;
+
+    const handleGlobalStop = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      stopTimer();
+    };
+
+    window.addEventListener('pointerdown', handleGlobalStop, { capture: true });
+    window.addEventListener('touchstart', handleGlobalStop, { capture: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleGlobalStop, { capture: true });
+      window.removeEventListener('touchstart', handleGlobalStop, { capture: true });
+    };
+  }, [timerState]);
+
+  const handlePadPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    if (timerStateRef.current === 'timing') {
+      stopTimer();
+      return;
+    }
+    if (timerStateRef.current === 'idle') {
+      setTimerState('holding');
+      holdTimerRef.current = window.setTimeout(() => {
+        setTimerState('ready');
+      }, 300);
+    }
+  };
+
+  const handlePadPointerUp = (e: React.PointerEvent) => {
+    e.preventDefault();
+    if (timerStateRef.current === 'ready' || timerStateRef.current === 'holding') {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      startTimer();
+    }
   };
 
   const formatTime = (ms: number): string => {
@@ -193,48 +274,66 @@ export const ScrambleAndTimer: React.FC<ScrambleAndTimerProps> = ({
 
       {/* Speedcubing Timer Pad */}
       <div
-        onPointerDown={() => {
-          if (timerState === 'timing') {
-            stopTimer();
-          } else if (timerState === 'idle') {
-            setTimerState('holding');
-            holdTimerRef.current = window.setTimeout(() => {
-              setTimerState('ready');
-            }, 350);
-          }
-        }}
-        onPointerUp={() => {
-          if (timerState === 'ready') {
-            startTimer();
-          } else if (timerState === 'holding') {
-            if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-            setTimerState('idle');
-          }
-        }}
-        className={`relative p-6 sm:p-8 rounded-3xl border text-center select-none cursor-pointer transition-all flex flex-col items-center justify-center min-h-[220px] sm:min-h-[250px] touch-none shadow-2xl ${
+        onPointerDown={handlePadPointerDown}
+        onPointerUp={handlePadPointerUp}
+        className={`relative p-6 sm:p-8 rounded-3xl border text-center select-none cursor-pointer transition-all flex flex-col items-center justify-center min-h-[220px] sm:min-h-[250px] shadow-2xl active:scale-[0.99] ${
           timerState === 'ready'
-            ? 'bg-neutral-900 border-white ring-2 ring-white/50'
+            ? 'bg-neutral-900 border-emerald-400 ring-4 ring-emerald-500/50'
             : timerState === 'holding'
-            ? 'bg-neutral-900 border-white/40'
+            ? 'bg-neutral-900 border-amber-400 ring-2 ring-amber-500/40'
             : timerState === 'timing'
-            ? 'bg-black border-white'
+            ? 'bg-black border-white ring-2 ring-white/30'
             : 'border-white/20 hover:border-white/40'
         }`}
         style={{ 
           backgroundColor: timerState === 'timing' ? '#000000' : 'var(--bg-card)', 
-          borderColor: timerState === 'ready' ? '#ffffff' : 'var(--border-subtle)' 
+          borderColor: timerState === 'ready' ? '#10b981' : timerState === 'holding' ? '#f59e0b' : 'var(--border-subtle)' 
         }}
       >
-        <div className="font-mono text-5xl sm:text-7xl font-black tracking-tight text-white mb-2">
+        <div className={`font-mono text-5xl sm:text-7xl font-black tracking-tight mb-2 transition-colors ${
+          timerState === 'ready' ? 'text-emerald-400' : timerState === 'holding' ? 'text-amber-400' : 'text-white'
+        }`}>
           {formatTime(elapsedTime)}
         </div>
 
-        <div className="text-xs font-mono text-neutral-400 font-medium">
-          {timerState === 'ready' && <span className="text-white font-black">RELEASE TO START!</span>}
-          {timerState === 'holding' && <span className="text-neutral-300">Hold steady...</span>}
-          {timerState === 'timing' && <span className="text-white animate-pulse">Tap anywhere or press Space to stop</span>}
-          {timerState === 'idle' && <span>Hold Spacebar or touch &amp; hold to arm timer</span>}
+        <div className="text-xs sm:text-sm font-mono text-neutral-400 font-medium">
+          {timerState === 'ready' && <span className="text-emerald-400 font-black text-sm sm:text-base animate-pulse">● READY - RELEASE TO START!</span>}
+          {timerState === 'holding' && <span className="text-amber-300 font-bold">Hold steady (300ms)...</span>}
+          {timerState === 'timing' && <span className="text-white font-bold animate-pulse">TIMING &bull; Tap anywhere or press Space to stop</span>}
+          {timerState === 'idle' && <span>Tap pad, click Start, or hold Spacebar</span>}
         </div>
+      </div>
+
+      {/* Direct Interactive Control Buttons */}
+      <div className="flex items-center justify-center gap-2 sm:gap-3">
+        {timerState === 'timing' ? (
+          <button
+            onClick={stopTimer}
+            className="h-12 px-8 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-xl transition-transform active:scale-95"
+          >
+            <span>⏹ Stop Timer</span>
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={startTimer}
+              className="h-12 px-8 rounded-xl bg-white hover:bg-neutral-200 text-black font-black text-sm flex items-center justify-center gap-2 shadow-xl transition-transform active:scale-95"
+            >
+              <span>▶ Start Timer</span>
+            </button>
+
+            {elapsedTime > 0 && (
+              <button
+                onClick={handleResetTimer}
+                className="h-12 px-5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors active:scale-95"
+                title="Reset time to 0.00"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Reset</span>
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Analytics */}

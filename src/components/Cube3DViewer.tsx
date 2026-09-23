@@ -401,7 +401,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const edgesGeom = new THREE.EdgesGeometry(boxGeom);
     boxGeom.dispose();
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0xffffff,
+      color: face === 'U' ? 0x00e5ff : 0xffffff,
       transparent: true,
       opacity: 0.85,
       depthWrite: false
@@ -439,7 +439,8 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
 
     const { startAngle, sweepAngle, isDouble } = getRotationArcParameters(move);
     const arrowGroup = new THREE.Group();
-    const arrowColor = 0xffffff;
+    // High-contrast electric cyan on white U face to prevent washing out, crisp white on colored faces
+    const arrowColor = face === 'U' ? 0x00e5ff : 0xffffff;
 
     // Face basis vectors: center, u (right for viewer), v (up for viewer)
     const center = new THREE.Vector3(0, 0, 0);
@@ -497,6 +498,18 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const curve = new THREE.CatmullRomCurve3(points);
     const tubeGeom = new THREE.TubeGeometry(curve, 32, tubeRadius, 10, false);
 
+    // Dark contrast backing contour (guarantees 100% visibility against pure white or bright stickers)
+    const darkMat = new THREE.MeshBasicMaterial({
+      color: 0x0a0a0a,
+      transparent: true,
+      opacity: 0.80,
+      depthWrite: false
+    });
+    const darkTubeGeom = new THREE.TubeGeometry(curve, 32, tubeRadius * 1.45, 10, false);
+    const darkTube = new THREE.Mesh(darkTubeGeom, darkMat);
+    darkTube.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder - 1;
+    arrowGroup.add(darkTube);
+
     // Pass 1: Ghost pass (GreaterDepth, 0.35 opacity, renderOrder: 998)
     // Allows subtle x-ray silhouette when face is angled away
     const ghostTubeMat = new THREE.MeshBasicMaterial({
@@ -528,6 +541,14 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const prevPos = points[points.length - 2];
     const tangent = new THREE.Vector3().subVectors(endPos, prevPos).normalize();
     const coneQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+
+    // Dark backing cone contour
+    const darkConeGeom = new THREE.ConeGeometry(0.24, 0.42, 16);
+    const darkCone = new THREE.Mesh(darkConeGeom, darkMat);
+    darkCone.position.copy(endPos);
+    darkCone.quaternion.copy(coneQuat);
+    darkCone.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder - 1;
+    arrowGroup.add(darkCone);
 
     // Ghost cone Pass 1
     const ghostConeMat = new THREE.MeshBasicMaterial({
@@ -562,6 +583,12 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
       const nextPos = points[1];
       const startTangent = new THREE.Vector3().subVectors(startPos, nextPos).normalize();
       
+      const darkCone2 = new THREE.Mesh(darkConeGeom, darkMat);
+      darkCone2.position.copy(startPos);
+      darkCone2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), startTangent);
+      darkCone2.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder - 1;
+      arrowGroup.add(darkCone2);
+
       const ghostCone2 = new THREE.Mesh(coneGeom, ghostConeMat);
       ghostCone2.position.copy(startPos);
       ghostCone2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), startTangent);
