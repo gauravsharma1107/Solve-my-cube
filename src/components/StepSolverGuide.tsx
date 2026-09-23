@@ -386,110 +386,137 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
             </div>
           )
         ) : activeStep ? (
-          /* ACTIVE STEP PRESENTATION (CRYSTAL CLEAR DUAL-AUDIENCE INSTRUCTION) */
-          <div className="flex flex-col gap-2 sm:gap-3">
-            {/* Step header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 sm:gap-2 font-mono">
-                <span className="px-2 py-0.5 rounded-md bg-white text-black font-black text-[11px] sm:text-xs tracking-wider">
-                  STEP {currentStepIndex + 1} OF {totalSteps}
-                </span>
-                {activeStep.phase && (
-                  <span className="px-2 py-0.5 rounded-full border border-white/20 text-[10px] text-neutral-300 font-semibold truncate max-w-[140px] sm:max-w-[200px]">
-                    {activeStep.phase}
-                  </span>
-                )}
+          <>
+            {/* Mobile Compact Move Card (Ultra-compact ~42px dock to maximize 3D canvas to ~70% screen height) */}
+            <div className="md:hidden flex items-center justify-between gap-2 p-1.5 rounded-xl border" style={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)' }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-white text-black font-mono text-xl font-black flex items-center justify-center flex-shrink-0 shadow-md">
+                  {activeStep.notation}
+                </div>
+                <div className="flex flex-col min-w-0 justify-center">
+                  <div className="flex items-center gap-1 font-mono text-[10px] font-bold text-white">
+                    <span>{activeFace ? `${FACE_NAMES[activeFace]} Face` : 'Turn Face'}</span>
+                    <span className="text-neutral-400">•</span>
+                    <span className="text-neutral-200">{isDouble ? '180°' : isPrime ? '90° CCW' : '90° CW'}</span>
+                    {nextStep && (
+                      <span className="text-neutral-400 text-[9px] ml-1">Next: <strong className="text-white">{nextStep.notation}</strong></span>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold text-white truncate max-w-[210px]">
+                    {getSteeringAnalogy(activeStep.notation) || activeStep.description}
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] sm:text-xs font-mono text-neutral-400 font-bold">
-                {Math.round(((currentStepIndex) / totalSteps) * 100)}% done
-              </span>
+              <div className="flex-shrink-0 px-2 py-0.5 rounded-md bg-white/10 text-[10px] font-mono font-bold text-neutral-300 border border-white/15">
+                {currentStepIndex + 1}/{totalSteps}
+              </div>
             </div>
 
-            {/* Current Move Hero Box */}
-            <div 
-              className="flex items-center gap-2.5 sm:gap-3.5 p-2 sm:p-3 rounded-xl sm:rounded-2xl border transition-colors"
-              style={{ 
-                backgroundColor: 'var(--bg-elevated)', 
-                borderColor: 'var(--border-strong)' 
-              }}
-            >
-              {/* Massive High-Contrast Move Notation Pill */}
-              <div 
-                className="w-13 h-13 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white text-black font-mono text-2xl sm:text-3xl font-black flex items-center justify-center flex-shrink-0 shadow-xl border border-neutral-300"
-                aria-label={`Current move notation: ${activeStep.notation}`}
-              >
-                {activeStep.notation}
-              </div>
-
-              {/* Step Directions: Dual-Audience Beginner Analogy + Details */}
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                  <span className="text-xs sm:text-sm font-black text-white uppercase tracking-tight">
-                    {activeFace ? `${FACE_NAMES[activeFace]} Face` : 'Turn Face'}
+            {/* Desktop & Tablet Rich Guidance */}
+            <div className="hidden md:flex flex-col gap-2 sm:gap-3">
+              {/* Step header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 sm:gap-2 font-mono">
+                  <span className="px-2 py-0.5 rounded-md bg-white text-black font-black text-[11px] sm:text-xs tracking-wider">
+                    STEP {currentStepIndex + 1} OF {totalSteps}
                   </span>
-                  <span className="px-1.5 sm:px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono text-neutral-200 border border-white/20 font-bold">
-                    {isDouble ? '⟳ 180° Turn' : isPrime ? '↺ 90° CCW' : '↻ 90° CW'}
-                  </span>
-                  {/* Next Move Lookahead Pill for Experienced Cubers */}
-                  <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-neutral-800 text-[10px] font-mono text-neutral-300 border border-white/15 font-semibold flex items-center gap-1">
-                    <span className="text-neutral-500">Next:</span>
-                    <strong className="text-white">{nextStep ? nextStep.notation : 'Done'}</strong>
-                  </span>
-                </div>
-
-                {/* Beginner Steering Wheel Analogy */}
-                <div className="text-xs sm:text-sm font-bold text-white leading-snug mt-0.5 truncate sm:whitespace-normal">
-                  {getSteeringAnalogy(activeStep.notation) || activeStep.description}
-                </div>
-
-                <div className="text-[10px] sm:text-[11px] text-neutral-400 font-mono mt-0.5 flex items-center gap-1.5 truncate">
-                  {isDouble ? (
-                    <RefreshCw className="w-3 h-3 text-white stroke-[2.5] flex-shrink-0" />
-                  ) : isPrime ? (
-                    <RotateCcw className="w-3 h-3 text-white stroke-[2.5] flex-shrink-0" />
-                  ) : (
-                    <RotateCw className="w-3 h-3 text-white stroke-[2.5] flex-shrink-0" />
+                  {activeStep.phase && (
+                    <span className="px-2 py-0.5 rounded-full border border-white/20 text-[10px] text-neutral-300 font-semibold truncate max-w-[140px] sm:max-w-[200px]">
+                      {activeStep.phase}
+                    </span>
                   )}
-                  <span className="truncate">
-                    Follow {isDouble ? '180°' : isPrime ? 'counter-clockwise ↺' : 'clockwise ↻'} 3D arrow
+                </div>
+                <span className="text-[11px] sm:text-xs font-mono text-neutral-400 font-bold">
+                  {Math.round(((currentStepIndex) / totalSteps) * 100)}% done
+                </span>
+              </div>
+
+              {/* Current Move Hero Box */}
+              <div 
+                className="flex items-center gap-2.5 sm:gap-3.5 p-2 sm:p-3 rounded-xl sm:rounded-2xl border transition-colors"
+                style={{ 
+                  backgroundColor: 'var(--bg-elevated)', 
+                  borderColor: 'var(--border-strong)' 
+                }}
+              >
+                {/* Massive High-Contrast Move Notation Pill */}
+                <div 
+                  className="w-13 h-13 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white text-black font-mono text-2xl sm:text-3xl font-black flex items-center justify-center flex-shrink-0 shadow-xl border border-neutral-300"
+                  aria-label={`Current move notation: ${activeStep.notation}`}
+                >
+                  {activeStep.notation}
+                </div>
+
+                {/* Step Directions: Dual-Audience Beginner Analogy + Details */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-black text-white uppercase tracking-tight">
+                      {activeFace ? `${FACE_NAMES[activeFace]} Face` : 'Turn Face'}
+                    </span>
+                    <span className="px-1.5 sm:px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono text-neutral-200 border border-white/20 font-bold">
+                      {isDouble ? '⟳ 180° Turn' : isPrime ? '↺ 90° CCW' : '↻ 90° CW'}
+                    </span>
+                    {/* Next Move Lookahead Pill for Experienced Cubers */}
+                    <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-neutral-800 text-[10px] font-mono text-neutral-300 border border-white/15 font-semibold flex items-center gap-1">
+                      <span className="text-neutral-500">Next:</span>
+                      <strong className="text-white">{nextStep ? nextStep.notation : 'Done'}</strong>
+                    </span>
+                  </div>
+
+                  {/* Beginner Steering Wheel Analogy */}
+                  <div className="text-xs sm:text-sm font-bold text-white leading-snug mt-0.5 truncate sm:whitespace-normal">
+                    {getSteeringAnalogy(activeStep.notation) || activeStep.description}
+                  </div>
+
+                  <div className="text-[10px] sm:text-[11px] text-neutral-400 font-mono mt-0.5 flex items-center gap-1.5 truncate">
+                    {isDouble ? (
+                      <RefreshCw className="w-3 h-3 text-white stroke-[2.5] flex-shrink-0" />
+                    ) : isPrime ? (
+                      <RotateCcw className="w-3 h-3 text-white stroke-[2.5] flex-shrink-0" />
+                    ) : (
+                      <RotateCw className="w-3 h-3 text-white stroke-[2.5] flex-shrink-0" />
+                    )}
+                    <span className="truncate">
+                      Follow {isDouble ? '180°' : isPrime ? 'counter-clockwise ↺' : 'clockwise ↻'} 3D arrow
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Move Context Flow: Prev -> Current -> Next */}
+              <div 
+                className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono"
+                style={{ 
+                  backgroundColor: 'var(--bg-canvas)', 
+                  borderColor: 'var(--border-subtle)' 
+                }}
+              >
+                <div className="flex items-center gap-1 text-neutral-400 truncate">
+                  <span className="text-[10px] uppercase text-neutral-500">Prev:</span>
+                  <span className="font-bold text-white">
+                    {prevStep ? prevStep.notation : 'Start'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-black font-black bg-white px-2 py-0.5 rounded-md text-[11px]">
+                  <span>Active: {activeStep.notation}</span>
+                </div>
+                <div className="flex items-center gap-1 text-neutral-400 truncate">
+                  <span className="text-[10px] uppercase text-neutral-500">Next:</span>
+                  <span className="font-bold text-white">
+                    {nextStep ? nextStep.notation : 'Done'}
                   </span>
                 </div>
               </div>
-            </div>
 
-            {/* Move Context Flow: Prev -> Current -> Next */}
-            <div 
-              className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono"
-              style={{ 
-                backgroundColor: 'var(--bg-canvas)', 
-                borderColor: 'var(--border-subtle)' 
-              }}
-            >
-              <div className="flex items-center gap-1 text-neutral-400 truncate">
-                <span className="text-[10px] uppercase text-neutral-500">Prev:</span>
-                <span className="font-bold text-white">
-                  {prevStep ? prevStep.notation : 'Start'}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 text-black font-black bg-white px-2 py-0.5 rounded-md text-[11px]">
-                <span>Active: {activeStep.notation}</span>
-              </div>
-              <div className="flex items-center gap-1 text-neutral-400 truncate">
-                <span className="text-[10px] uppercase text-neutral-500">Next:</span>
-                <span className="font-bold text-white">
-                  {nextStep ? nextStep.notation : 'Done'}
-                </span>
+              {/* Progress Bar */}
+              <div className="w-full h-1.5 sm:h-2 rounded-full overflow-hidden border border-white/20" style={{ backgroundColor: 'var(--bg-canvas)' }}>
+                <div
+                  className="h-full bg-white transition-all duration-300 shadow-sm"
+                  style={{ width: `${((currentStepIndex) / totalSteps) * 100}%` }}
+                />
               </div>
             </div>
-
-            {/* Progress Bar */}
-            <div className="w-full h-1.5 sm:h-2 rounded-full overflow-hidden border border-white/20" style={{ backgroundColor: 'var(--bg-canvas)' }}>
-              <div
-                className="h-full bg-white transition-all duration-300 shadow-sm"
-                style={{ width: `${((currentStepIndex) / totalSteps) * 100}%` }}
-              />
-            </div>
-          </div>
+          </>
         ) : (
           <div className="text-center py-4 text-xs text-neutral-400">
             {isSolved ? (
@@ -565,10 +592,10 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
         </button>
       </div>
 
-      {/* Step pills timeline */}
+      {/* Step pills timeline (Desktop only: hidden on mobile per user request since elevated to top of mobile screen) */}
       {totalSteps > 0 && (
         <div 
-          className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border scrollbar-none touch-pan-x transition-colors flex-shrink-0"
+          className="hidden md:flex items-center gap-1 sm:gap-1.5 overflow-x-auto p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border scrollbar-none touch-pan-x transition-colors flex-shrink-0"
           style={{ 
             backgroundColor: 'var(--bg-canvas)', 
             borderColor: 'var(--border-subtle)' 

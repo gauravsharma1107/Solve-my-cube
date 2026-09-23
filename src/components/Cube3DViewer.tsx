@@ -497,12 +497,26 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const curve = new THREE.CatmullRomCurve3(points);
     const tubeGeom = new THREE.TubeGeometry(curve, 32, tubeRadius, 10, false);
 
-    // Single high-contrast, perfectly stable arrow mesh
+    // Pass 1: Ghost pass (GreaterDepth, 0.35 opacity, renderOrder: 998)
+    // Allows subtle x-ray silhouette when face is angled away
+    const ghostTubeMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass1.transparent,
+      opacity: DUAL_PASS_CONFIG.pass1.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
+    });
+    const ghostTube = new THREE.Mesh(tubeGeom, ghostTubeMat);
+    ghostTube.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
+    arrowGroup.add(ghostTube);
+
+    // Pass 2: Foreground pass (LessEqualDepth, 1.0 opacity, renderOrder: 999)
     const tubeMat = new THREE.MeshBasicMaterial({
       color: arrowColor,
-      transparent: true,
-      opacity: 0.95,
-      depthWrite: false
+      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass2.transparent,
+      opacity: DUAL_PASS_CONFIG.pass2.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
     });
     const tube = new THREE.Mesh(tubeGeom, tubeMat);
     tube.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
@@ -515,11 +529,27 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const tangent = new THREE.Vector3().subVectors(endPos, prevPos).normalize();
     const coneQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
 
+    // Ghost cone Pass 1
+    const ghostConeMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass1.transparent,
+      opacity: DUAL_PASS_CONFIG.pass1.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
+    });
+    const ghostCone = new THREE.Mesh(coneGeom, ghostConeMat);
+    ghostCone.position.copy(endPos);
+    ghostCone.quaternion.copy(coneQuat);
+    ghostCone.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
+    arrowGroup.add(ghostCone);
+
+    // Foreground cone Pass 2
     const coneMat = new THREE.MeshBasicMaterial({
       color: arrowColor,
-      transparent: true,
-      opacity: 0.95,
-      depthWrite: false
+      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass2.transparent,
+      opacity: DUAL_PASS_CONFIG.pass2.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
     });
     const cone = new THREE.Mesh(coneGeom, coneMat);
     cone.position.copy(endPos);
@@ -531,6 +561,13 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
       const startPos = points[0];
       const nextPos = points[1];
       const startTangent = new THREE.Vector3().subVectors(startPos, nextPos).normalize();
+      
+      const ghostCone2 = new THREE.Mesh(coneGeom, ghostConeMat);
+      ghostCone2.position.copy(startPos);
+      ghostCone2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), startTangent);
+      ghostCone2.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
+      arrowGroup.add(ghostCone2);
+
       const cone2 = new THREE.Mesh(coneGeom, coneMat);
       cone2.position.copy(startPos);
       cone2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), startTangent);
@@ -1145,6 +1182,12 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
   useEffect(() => {
     updateRotationArrow(activeMove);
     updateLayerHighlight(activeMove);
+    if (activeMove) {
+      const face = activeMove[0] as Face;
+      if (FACE_NORMALS[face]) {
+        autoFrameFace(face, 0.20);
+      }
+    }
   }, [activeMove, showArrows]);
 
   const activeFace = activeMove ? (activeMove[0] as Face) : null;
@@ -1326,6 +1369,18 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
               </div>
             </div>
           ) : null}
+        </div>
+      )}
+
+      {/* Mobile Floating Move Instruction Pill (Guarantees instructions are never hidden on mobile) */}
+      {!interactivePainting && activeStep && (
+        <div className="lg:hidden absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/85 backdrop-blur-md border border-white/20 text-white shadow-xl pointer-events-none flex items-center gap-2 z-20">
+          <span className="w-5 h-5 rounded-md bg-white text-black font-mono font-black text-xs flex items-center justify-center shadow-sm">
+            {activeStep.notation}
+          </span>
+          <span className="text-[11px] font-bold font-mono">
+            {activeFace ? `${FACE_NAMES[activeFace]} Face` : ''} {isDouble ? '⟳ 180°' : isPrime ? '↺ 90° CCW' : '↻ 90° CW'}
+          </span>
         </div>
       )}
 

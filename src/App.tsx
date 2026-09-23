@@ -89,6 +89,18 @@ export const App: React.FC = () => {
 
   const cube3DRef = useRef<Cube3DViewerRef | null>(null);
   const isInitialMount = useRef(true);
+  const activePillRef = useRef<HTMLButtonElement | null>(null);
+
+  // Auto-scroll active move badge into view on mobile top letter navigation strip
+  useEffect(() => {
+    if (activePillRef.current) {
+      activePillRef.current.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest'
+      });
+    }
+  }, [currentStepIndex]);
 
   // Apply black intensity to CSS variables (instant on initial mount, smooth during user slider interaction)
   useEffect(() => {
@@ -201,7 +213,43 @@ export const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      <main className={`flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 min-h-0 flex flex-col ${activeTab === 'solver' ? 'overflow-hidden pb-1 sm:pb-4' : 'overflow-y-auto pb-24 md:pb-6'}`}>
+      {/* Mobile Top Letter Navigation Strip (Elevated to top per user request, replacing top navbar on mobile) */}
+      {activeTab === 'solver' && solutionSteps.length > 0 && (
+        <div 
+          className="md:hidden w-full px-2 py-1.5 backdrop-blur-md border-b flex items-center gap-1.5 overflow-x-auto scrollbar-none z-30 flex-shrink-0 transition-colors"
+          style={{ 
+            backgroundColor: 'var(--bg-surface)', 
+            borderColor: 'var(--border-subtle)' 
+          }}
+        >
+          <div className="flex-shrink-0 px-2 py-0.5 rounded-md bg-white/10 text-[10px] font-mono font-bold text-neutral-300 border border-white/15">
+            {currentStepIndex + 1}/{solutionSteps.length}
+          </div>
+          {solutionSteps.map((step, idx) => {
+            const isDone = idx < currentStepIndex;
+            const isCurrent = idx === currentStepIndex;
+            return (
+              <button
+                key={step.id}
+                ref={isCurrent ? activePillRef : null}
+                onClick={() => handleStepJump(idx)}
+                className={`flex-shrink-0 min-w-[34px] h-7 px-2 rounded-lg text-xs font-mono font-black transition-all flex items-center justify-center ${
+                  isCurrent
+                    ? 'bg-white text-black shadow-md scale-105 border-2 border-white'
+                    : isDone
+                    ? 'bg-neutral-800 text-neutral-300 border border-white/20'
+                    : 'bg-black/60 text-neutral-400 border border-white/10 hover:text-white'
+                }`}
+                title={`Jump to step ${idx + 1}: ${step.notation}`}
+              >
+                {step.notation}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <main className={`flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 min-h-0 flex flex-col ${activeTab === 'solver' ? 'overflow-hidden pb-16 md:pb-4' : 'overflow-y-auto pb-24 md:pb-6'}`}>
         {activeTab === 'solver' && (
           <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-2 sm:gap-4 overflow-hidden">
             {/* 3D Visualizer Viewport: flexible flex-1 on mobile, min-h-[220px] */}

@@ -53,9 +53,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      {/* Top Header Bar */}
+      {/* Top Header Bar (Desktop/Tablet only: completely hidden on mobile per user request) */}
       <header 
-        className="w-full sticky top-0 z-40 px-2.5 sm:px-6 py-2 sm:py-2.5 backdrop-blur-md border-b transition-colors flex-shrink-0"
+        className="hidden md:block w-full sticky top-0 z-40 px-2.5 sm:px-6 py-2 sm:py-2.5 backdrop-blur-md border-b transition-colors flex-shrink-0"
         style={{ 
           backgroundColor: 'var(--bg-surface)', 
           borderColor: 'var(--border-subtle)' 
@@ -225,63 +225,74 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation Bar: active only when NOT on solver tab to prevent bottom dock obstruction */}
-      {activeTab !== 'solver' && (
-        <nav 
-          aria-label="Mobile Navigation"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t px-2 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl flex items-center justify-around transition-colors"
-          style={{ 
-            backgroundColor: 'var(--bg-surface)', 
-            borderColor: 'var(--border-subtle)' 
-          }}
+      {/* Mobile Bottom Navigation Bar: active across all tabs per user request (replaces former activeTab !== 'solver' restriction) */}
+      <nav 
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t px-2 pt-1 pb-[max(0.4rem,env(safe-area-inset-bottom))] shadow-2xl flex items-center justify-around transition-colors"
+        style={{ 
+          backgroundColor: 'var(--bg-surface)', 
+          borderColor: 'var(--border-subtle)' 
+        }}
+      >
+        <button
+          onClick={() => onSelectTab('solver')}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all ${
+            activeTab === 'solver'
+              ? 'text-white font-black bg-white/15 shadow-sm'
+              : 'text-neutral-400 hover:text-white font-medium'
+          }`}
+          title="3D Solver"
         >
-          <button
-            onClick={() => onSelectTab('solver')}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
-              (activeTab as string) === 'solver'
-                ? 'text-white font-black bg-white/15'
-                : 'text-neutral-400 hover:text-white font-medium'
-            }`}
-          >
-            <Box className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-mono tracking-tight">Solver</span>
-          </button>
+          <Box className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-mono tracking-tight">Solver</span>
+        </button>
 
-          <button
-            onClick={onOpenScanner}
-            className="flex-1 flex flex-col items-center justify-center py-1 px-2 mx-1 rounded-2xl bg-white text-black font-bold shadow-md transition-transform active:scale-95"
-          >
-            <div className="w-7 h-7 rounded-xl bg-black flex items-center justify-center text-white shadow-md -mt-3.5">
-              <Camera className="w-4 h-4 text-white stroke-[2.5]" />
-            </div>
-            <span className="text-[10px] font-bold font-mono text-black mt-0.5">Scan</span>
-          </button>
+        <button
+          onClick={onOpenScanner}
+          className="flex-1 flex flex-col items-center justify-center py-0.5 px-1.5 mx-1 rounded-2xl bg-white text-black font-bold shadow-md transition-transform active:scale-95"
+          title="Camera Scanner"
+        >
+          <div className="w-6 h-6 rounded-xl bg-black flex items-center justify-center text-white shadow-md -mt-2.5">
+            <Camera className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+          </div>
+          <span className="text-[10px] font-bold font-mono text-black mt-0.5">Scan</span>
+        </button>
 
-          <button
-            onClick={() => onSelectTab('editor')}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
-              activeTab === 'editor'
-                ? 'text-white font-black bg-white/15'
-                : 'text-neutral-400 hover:text-white font-medium'
-            }`}
-          >
-            <Edit3 className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-mono tracking-tight">Input</span>
-          </button>
+        <button
+          onClick={() => onSelectTab('editor')}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all ${
+            activeTab === 'editor'
+              ? 'text-white font-black bg-white/15 shadow-sm'
+              : 'text-neutral-400 hover:text-white font-medium'
+          }`}
+          title="Cube Input / Net Editor"
+        >
+          <Edit3 className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-mono tracking-tight">Input</span>
+        </button>
 
-          <button
-            onClick={() => onSelectTab('timer')}
-            className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
-              activeTab === 'timer'
-                ? 'text-white font-black bg-white/15'
-                : 'text-neutral-400 hover:text-white font-medium'
-            }`}
-          >
-            <Timer className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-mono tracking-tight">Timer</span>
-          </button>
-        </nav>
-      )}
+        <button
+          onClick={() => onSelectTab('timer')}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all ${
+            activeTab === 'timer'
+              ? 'text-white font-black bg-white/15 shadow-sm'
+              : 'text-neutral-400 hover:text-white font-medium'
+          }`}
+          title="Speedcubing Timer"
+        >
+          <Timer className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-mono tracking-tight">Timer</span>
+        </button>
+
+        <button
+          onClick={onOpenSettings}
+          className="flex-1 flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-neutral-400 hover:text-white font-medium transition-all"
+          title="Adjust Theme & Black Intensity"
+        >
+          <Sliders className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-mono tracking-tight">Theme</span>
+        </button>
+      </nav>
     </>
   );
 };
