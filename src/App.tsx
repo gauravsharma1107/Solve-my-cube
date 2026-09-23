@@ -3,7 +3,8 @@ import { Navbar, type AppTab } from './components/Navbar';
 import { Cube3DViewer, type Cube3DViewerRef } from './components/Cube3DViewer';
 import { StepSolverGuide } from './components/StepSolverGuide';
 import { getInitialIntensity, applyBlackIntensity } from './utils/themeManager';
-import type { CubeColor, CubeState, Face, FaceState, SolutionStep, SolverMode } from './solver/cubeTypes';
+import { getStoredLanguage, setStoredLanguage, type AppLanguage } from './utils/i18n';
+import type { CubeColor, CubeState, Face, FaceState, SolutionStep, SolverMode, LearnerMethod } from './solver/cubeTypes';
 import { applyMove, applyMoveSequence, invertMove, isCubeSolved } from './solver/moveParser';
 import { initSolverService, solveCube } from './solver/solverService';
 import { validateCubeParity } from './solver/parityValidator';
@@ -77,6 +78,9 @@ export const App: React.FC = () => {
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [blackIntensity, setBlackIntensity] = useState<number>(() => getInitialIntensity());
+  const [language, setLanguage] = useState<AppLanguage>(() => getStoredLanguage());
+  const [learnerMethod, setLearnerMethod] = useState<LearnerMethod>('lbl');
+  const [showReasons, setShowReasons] = useState<boolean>(true);
 
   const [cubeState, setCubeState] = useState<CubeState>(() => createSolvedCube());
   const [initialScrambledState, setInitialScrambledState] = useState<CubeState>(() => createSolvedCube());
@@ -119,7 +123,12 @@ export const App: React.FC = () => {
     });
   }, []);
 
-  const computeSolution = async (state: CubeState, mode: SolverMode) => {
+  const computeSolution = async (
+    state: CubeState,
+    mode: SolverMode = solverMode,
+    subMethod: LearnerMethod = learnerMethod,
+    lang: AppLanguage = language
+  ) => {
     const parity = validateCubeParity(state);
     if (!parity.isValid) {
       setParityError(parity.errors[0] || 'Parity validation failed.');
@@ -130,7 +139,7 @@ export const App: React.FC = () => {
     setParityError(null);
 
     try {
-      const result = await solveCube(state, mode);
+      const result = await solveCube(state, mode, subMethod, lang);
       setSolutionSteps(result.steps);
       setCurrentStepIndex(0);
     } catch (e) {
@@ -166,8 +175,22 @@ export const App: React.FC = () => {
 
   const handleModeChange = (newMode: SolverMode) => {
     setSolverMode(newMode);
-    computeSolution(initialScrambledState, newMode);
+    computeSolution(initialScrambledState, newMode, learnerMethod, language);
     setCubeState(initialScrambledState);
+  };
+
+  const handleLearnerMethodChange = (newMethod: LearnerMethod) => {
+    setLearnerMethod(newMethod);
+    if (solverMode === 'learner') {
+      computeSolution(initialScrambledState, 'learner', newMethod, language);
+      setCubeState(initialScrambledState);
+    }
+  };
+
+  const handleLanguageChange = (newLang: AppLanguage) => {
+    setLanguage(newLang);
+    setStoredLanguage(newLang);
+    computeSolution(initialScrambledState, solverMode, learnerMethod, newLang);
   };
 
   const handleScramble = (customScramble?: string) => {
@@ -175,7 +198,7 @@ export const App: React.FC = () => {
     const scrambled = applyMoveSequence(createSolvedCube(), seq);
     setInitialScrambledState(scrambled);
     setCubeState(scrambled);
-    computeSolution(scrambled, solverMode);
+    computeSolution(scrambled, solverMode, learnerMethod, language);
   };
 
   const handleReset = () => {
@@ -194,7 +217,7 @@ export const App: React.FC = () => {
     setCubeState(scannedState);
     setIsScannerOpen(false);
     setActiveTab('solver');
-    computeSolution(scannedState, solverMode);
+    computeSolution(scannedState, solverMode, learnerMethod, language);
   };
 
   useEffect(() => {
@@ -211,6 +234,7 @@ export const App: React.FC = () => {
         onSelectTab={setActiveTab}
         onOpenScanner={() => setIsScannerOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        language={language}
       />
 
       {/* Mobile Top Letter Navigation Strip (Elevated to top per user request, replacing top navbar on mobile) */}
@@ -303,6 +327,9 @@ export const App: React.FC = () => {
                 onPerformMove={handlePerformMove}
                 isAnimating={isAnimating}
                 onOpenEditor={() => setActiveTab('editor')}
+                language={language}
+                learnerMethod={learnerMethod}
+                onSelectLearnerMethod={handleLearnerMethodChange}
               />
             </div>
           </div>
@@ -354,13 +381,19 @@ export const App: React.FC = () => {
         </Suspense>
       )}
 
-      {/* Theme & Black Intensity Modal */}
+      {/* Theme & Settings Modal */}
       <Suspense fallback={null}>
         <ThemeSettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           intensity={blackIntensity}
           onIntensityChange={setBlackIntensity}
+          language={language}
+          onLanguageChange={handleLanguageChange}
+          learnerMethod={learnerMethod}
+          onLearnerMethodChange={handleLearnerMethodChange}
+          showReasons={showReasons}
+          onToggleShowReasons={() => setShowReasons(prev => !prev)}
         />
       </Suspense>
     </div>

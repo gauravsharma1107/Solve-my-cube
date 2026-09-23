@@ -1,6 +1,8 @@
 import { initKociembaSolver, solveWithKociemba } from './kociemba';
 import { solveWithBeginnerMethod } from './beginnerSolver';
-import type { CubeState, SolutionStep } from './cubeTypes';
+import { solveWithHumanStateMachine } from './humanStateMachineSolver';
+import type { CubeState, SolutionStep, SolverMode, LearnerMethod } from './cubeTypes';
+import type { AppLanguage } from '../utils/i18n';
 
 interface WorkerInitMessage {
   type: 'INIT';
@@ -10,7 +12,9 @@ interface WorkerSolveMessage {
   type: 'SOLVE';
   id: string;
   cubeState: CubeState;
-  method: 'optimal' | 'beginner';
+  method: SolverMode;
+  learnerMethod?: LearnerMethod;
+  language?: AppLanguage;
 }
 
 type WorkerIncomingMessage = WorkerInitMessage | WorkerSolveMessage;
@@ -33,7 +37,7 @@ self.onmessage = async (event: MessageEvent<WorkerIncomingMessage>) => {
   }
 
   if (data.type === 'SOLVE') {
-    const { id, cubeState, method } = data;
+    const { id, cubeState, method, learnerMethod, language } = data;
     const t0 = performance.now();
 
     try {
@@ -46,6 +50,12 @@ self.onmessage = async (event: MessageEvent<WorkerIncomingMessage>) => {
       if (method === 'optimal') {
         steps = solveWithKociemba(cubeState);
         algorithmName = 'Kociemba Two-Phase Optimal';
+      } else if (method === 'learner') {
+        const sub = learnerMethod || 'lbl';
+        steps = solveWithHumanStateMachine(cubeState, sub, language || 'en');
+        algorithmName = sub === 'cfop' 
+          ? 'Human State-Machine (Fridrich CFOP)' 
+          : 'Human State-Machine (Layer-by-Layer)';
       } else {
         steps = solveWithBeginnerMethod(cubeState);
         algorithmName = 'Layer-by-Layer Beginner Method';

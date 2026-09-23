@@ -59,9 +59,14 @@ export interface SolutionStep {
   description: string;       // e.g. "Rotate Right face Counter-Clockwise (down towards you)"
   voiceText: string;         // e.g. "Turn right face down"
   phase?: string;            // e.g. "White Cross" or "Optimal Two-Phase"
+  reason?: string;           // Educational human reason explaining WHY this move is performed
+  tip?: string;              // Key cubing principle or pattern recognition tip
+  subStage?: string;         // Detailed sub-stage (e.g. "Aligning Red-White Edge")
+  algorithmName?: string;    // Recognized standard algorithm (e.g. "Sexy Move", "Sune", "T-Perm")
 }
 
-export type SolverMode = 'optimal' | 'beginner';
+export type SolverMode = 'optimal' | 'beginner' | 'learner';
+export type LearnerMethod = 'lbl' | 'cfop';
 
 export interface ParityValidationResult {
   isValid: boolean;

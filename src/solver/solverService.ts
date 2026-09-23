@@ -1,4 +1,5 @@
-import type { CubeState, SolutionStep, Face } from './cubeTypes';
+import type { CubeState, SolutionStep, Face, SolverMode, LearnerMethod } from './cubeTypes';
+import type { AppLanguage } from '../utils/i18n';
 
 export interface SolveStepItem extends SolutionStep {
   notation: string;
@@ -48,7 +49,12 @@ const pendingRequests = new Map<
 /**
  * Main-thread fallback solver in case Web Worker is unsupported or throws in specific environments.
  */
-async function solveFallback(cubeState: CubeState, method: 'optimal' | 'beginner'): Promise<SolveResult> {
+async function solveFallback(
+  cubeState: CubeState,
+  method: SolverMode,
+  learnerMethod: LearnerMethod = 'lbl',
+  language: AppLanguage = 'en'
+): Promise<SolveResult> {
   const t0 = performance.now();
   const { solveWithKociemba, initKociembaSolver } = await import('./kociemba');
   initKociembaSolver();
@@ -59,6 +65,12 @@ async function solveFallback(cubeState: CubeState, method: 'optimal' | 'beginner
   if (method === 'optimal') {
     steps = solveWithKociemba(cubeState);
     algorithmName = 'Kociemba Two-Phase Optimal (Fallback)';
+  } else if (method === 'learner') {
+    const { solveWithHumanStateMachine } = await import('./humanStateMachineSolver');
+    steps = solveWithHumanStateMachine(cubeState, learnerMethod, language);
+    algorithmName = learnerMethod === 'cfop'
+      ? 'Human State-Machine (Fridrich CFOP - Fallback)'
+      : 'Human State-Machine (Layer-by-Layer - Fallback)';
   } else {
     const { solveWithBeginnerMethod } = await import('./beginnerSolver');
     steps = solveWithBeginnerMethod(cubeState);
@@ -175,15 +187,17 @@ export function initSolverService(): Promise<void> {
 }
 
 /**
- * Asynchronously solves a Rubik's Cube state using either optimal or beginner method.
+ * Asynchronously solves a Rubik's Cube state using optimal, beginner, or learner method.
  */
 export function solveCube(
   cubeState: CubeState,
-  method: 'optimal' | 'beginner' = 'optimal'
+  method: SolverMode = 'optimal',
+  learnerMethod: LearnerMethod = 'lbl',
+  language: AppLanguage = 'en'
 ): Promise<SolveResult> {
   const worker = getSolverWorker();
   if (!worker) {
-    return solveFallback(cubeState, method);
+    return solveFallback(cubeState, method, learnerMethod, language);
   }
 
   return new Promise<SolveResult>((resolve, reject) => {
@@ -193,7 +207,7 @@ export function solveCube(
       if (pendingRequests.has(id)) {
         pendingRequests.delete(id);
         console.warn(`Worker solve timed out for ID ${id}; falling back to main thread`);
-        solveFallback(cubeState, method).then(resolve).catch(reject);
+        solveFallback(cubeState, method, learnerMethod, language).then(resolve).catch(reject);
       }
     }, 15000);
 
@@ -204,6 +218,8 @@ export function solveCube(
       id,
       cubeState,
       method,
+      learnerMethod,
+      language,
     });
   });
 }

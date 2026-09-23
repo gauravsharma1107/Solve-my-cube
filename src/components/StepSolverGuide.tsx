@@ -3,13 +3,15 @@ import confetti from 'canvas-confetti';
 import { 
   Play, Pause, SkipBack, SkipForward, RotateCcw, 
   Volume2, VolumeX, Mic, MicOff,
-  Sparkles, Award, AlertTriangle, Compass, CheckCircle2, RotateCw, RefreshCw
+  Sparkles, Award, AlertTriangle, Compass, CheckCircle2, RotateCw, RefreshCw,
+  GraduationCap, Lightbulb, BookOpen
 } from 'lucide-react';
-import type { CubeState, SolutionStep, SolverMode, Face } from '../solver/cubeTypes';
+import type { CubeState, SolutionStep, SolverMode, Face, LearnerMethod } from '../solver/cubeTypes';
 import { FACE_NAMES } from '../solver/cubeTypes';
 import { isCubeSolved } from '../solver/moveParser';
 import { soundManager } from '../utils/soundEffects';
 import { speechGuide } from '../utils/speechGuide';
+import { t, getLocalizedAnalogy, type AppLanguage } from '../utils/i18n';
 
 export function getSteeringAnalogy(notation: string): string {
   if (!notation) return '';
@@ -66,6 +68,9 @@ interface StepSolverGuideProps {
   onPerformMove: (move: string, isForward: boolean) => Promise<void>;
   isAnimating: boolean;
   onOpenEditor?: () => void;
+  language?: AppLanguage;
+  learnerMethod?: LearnerMethod;
+  onSelectLearnerMethod?: (method: LearnerMethod) => void;
 }
 
 export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
@@ -77,7 +82,10 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
   onStepChange,
   onPerformMove,
   isAnimating,
-  onOpenEditor
+  onOpenEditor,
+  language = 'en',
+  learnerMethod = 'lbl',
+  onSelectLearnerMethod,
 }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1.0);
@@ -192,7 +200,7 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
   const resetRef = useRef(handleResetToStart);
   resetRef.current = handleResetToStart;
 
-  // Keyboard navigation shortcuts: Space (Play/Pause), ArrowRight (Next), ArrowLeft (Prev), KeyR (Reset)
+  // Keyboard navigation shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -226,41 +234,56 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
   const isPrime = activeStep?.move.includes("'");
   const isDouble = activeStep?.move.includes('2');
 
+  const currentAnalogy = activeStep
+    ? getLocalizedAnalogy(activeStep.notation, language) || getSteeringAnalogy(activeStep.notation) || activeStep.description
+    : '';
+
   return (
     <div className="w-full flex flex-col gap-2 sm:gap-3 text-white">
       {/* Solver Mode & Quick Controls Bar */}
       <div 
-        className="flex items-center justify-between gap-1.5 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border transition-colors flex-shrink-0"
+        className="flex flex-wrap items-center justify-between gap-1.5 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border transition-colors flex-shrink-0"
         style={{ 
           backgroundColor: 'var(--bg-card)', 
           borderColor: 'var(--border-subtle)' 
         }}
       >
-        {/* Mode Selector Pill */}
+        {/* Mode Selector Pill (Optimal, Beginner, Learner) */}
         <div className="flex items-center p-0.5 rounded-lg sm:rounded-xl border border-white/15" style={{ backgroundColor: 'var(--bg-canvas)' }}>
           <button
             onClick={() => onSelectMode('optimal')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold rounded-md sm:rounded-lg transition-all ${
+            className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-md sm:rounded-lg transition-all ${
               solverMode === 'optimal'
                 ? 'bg-white text-black shadow-md'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            Optimal <span className="hidden xs:inline">(~20)</span>
+            {t('mode_optimal', language)}
           </button>
           <button
             onClick={() => onSelectMode('beginner')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold rounded-md sm:rounded-lg transition-all ${
+            className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-md sm:rounded-lg transition-all ${
               solverMode === 'beginner'
                 ? 'bg-white text-black shadow-md'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            Beginner <span className="hidden xs:inline">(CFOP)</span>
+            {t('mode_beginner', language)}
+          </button>
+          <button
+            onClick={() => onSelectMode('learner')}
+            className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-md sm:rounded-lg transition-all flex items-center gap-1 ${
+              solverMode === 'learner'
+                ? 'bg-white text-black shadow-md'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <GraduationCap className="w-3 h-3" />
+            <span>{t('mode_learner', language)}</span>
           </button>
         </div>
 
-        {/* Orientation Guidance Pill (Compact on mobile, descriptive on tablet/desktop) */}
+        {/* Orientation Guidance Pill */}
         <div 
           className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 rounded-lg border text-[10px] sm:text-xs font-mono transition-colors"
           style={{ 
@@ -272,20 +295,19 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
           <Compass className="w-3.5 h-3.5 text-white flex-shrink-0" />
           <span className="flex items-center gap-1 font-bold text-white">
             <span className="w-2 h-2 rounded-full bg-white border border-neutral-600 inline-block shadow-sm" />
-            <span className="hidden xs:inline">White Top</span>
+            <span className="hidden xs:inline">{t('orient_white_top', language)}</span>
             <span className="xs:hidden">W</span>
           </span>
           <span className="text-neutral-500">&bull;</span>
           <span className="flex items-center gap-1 font-bold text-white">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-sm" />
-            <span className="hidden xs:inline">Green Front</span>
+            <span className="hidden xs:inline">{t('orient_green_front', language)}</span>
             <span className="xs:hidden">G</span>
           </span>
         </div>
 
         {/* Speed & Audio Icons */}
         <div className="flex items-center gap-1 sm:gap-1.5">
-          {/* Quick cycle speed button */}
           <button
             onClick={() => {
               const speeds = [0.5, 1.0, 1.5, 2.0];
@@ -324,6 +346,42 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
         </div>
       </div>
 
+      {/* Sub-method switch if in Learner mode */}
+      {solverMode === 'learner' && (
+        <div 
+          className="flex items-center justify-between gap-2 p-1.5 rounded-xl border border-white/15 animate-in fade-in transition-all flex-shrink-0"
+          style={{ backgroundColor: 'var(--bg-canvas)' }}
+        >
+          <div className="flex items-center gap-1.5 text-xs font-bold text-white pl-1">
+            <BookOpen className="w-3.5 h-3.5 text-amber-300" />
+            <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-300">Method:</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onSelectLearnerMethod && onSelectLearnerMethod('lbl')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                learnerMethod === 'lbl'
+                  ? 'bg-white text-black shadow-md'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              {t('submethod_lbl', language)}
+            </button>
+            <button
+              onClick={() => onSelectLearnerMethod && onSelectLearnerMethod('cfop')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                learnerMethod === 'cfop'
+                  ? 'bg-white text-black shadow-md'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              {t('submethod_cfop', language)}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Instruction Card (High-Contrast Hero & Dual-Audience Guidance) */}
       <div 
         className="relative p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border backdrop-blur shadow-2xl overflow-hidden transition-colors flex-shrink-0"
@@ -340,17 +398,17 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                 <Award className="w-6 h-6 sm:w-8 sm:h-8 stroke-[2.2]" />
               </div>
               <h3 className="text-base sm:text-xl font-black text-white mb-1 flex items-center gap-2 font-mono">
-                CUBE SOLVED! <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                {t('solved_title', language)} <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </h3>
               <p className="text-[11px] sm:text-xs text-neutral-300 max-w-sm leading-relaxed">
-                All {totalSteps} moves were performed cleanly. Every face has returned to its solved configuration!
+                {t('solved_desc', language)}
               </p>
               <button
                 onClick={handleResetToStart}
                 className="mt-3 px-3.5 py-1.5 rounded-xl bg-white text-black text-xs font-bold flex items-center gap-1.5 transition-colors hover:bg-neutral-200 shadow-md"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                Replay Solution From Beginning
+                {t('replay_solution', language)}
               </button>
             </div>
           ) : (
@@ -360,11 +418,10 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                 <AlertTriangle className="w-5 h-5 text-amber-400" />
               </div>
               <h3 className="text-sm sm:text-base font-bold text-white mb-1 flex items-center gap-1.5 font-mono">
-                Sequence Finished &bull; Cube Incomplete
+                {t('incomplete_title', language)}
               </h3>
               <p className="text-[11px] sm:text-xs text-neutral-300 max-w-md leading-relaxed">
-                All {totalSteps} moves were executed, but some stickers still differ.
-                Ensure you kept <strong className="text-white">White on Top</strong> and <strong className="text-white">Green in Front</strong> on every rotation.
+                {t('incomplete_desc', language)}
               </p>
               <div className="flex items-center gap-2 mt-2.5">
                 <button
@@ -372,14 +429,14 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                   className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  Replay Steps
+                  {t('replay_solution', language)}
                 </button>
                 {onOpenEditor && (
                   <button
                     onClick={onOpenEditor}
                     className="px-3 py-1.5 rounded-xl bg-white text-black font-bold text-xs flex items-center gap-1.5 hover:bg-neutral-200 transition-colors"
                   >
-                    Adjust in Cube Input
+                    {t('btn_adjust_input', language)}
                   </button>
                 )}
               </div>
@@ -387,29 +444,41 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
           )
         ) : activeStep ? (
           <>
-            {/* Mobile Compact Move Card (Ultra-compact ~42px dock to maximize 3D canvas to ~70% screen height) */}
-            <div className="md:hidden flex items-center justify-between gap-2 p-1.5 rounded-xl border" style={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)' }}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-white text-black font-mono text-xl font-black flex items-center justify-center flex-shrink-0 shadow-md">
-                  {activeStep.notation}
+            {/* Mobile Compact Move Card (Ultra-compact dock to maximize 3D canvas) */}
+            <div className="md:hidden flex flex-col gap-1.5 p-1.5 rounded-xl border" style={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-strong)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-white text-black font-mono text-xl font-black flex items-center justify-center flex-shrink-0 shadow-md">
+                    {activeStep.notation}
+                  </div>
+                  <div className="flex flex-col min-w-0 justify-center">
+                    <div className="flex items-center gap-1 font-mono text-[10px] font-bold text-white">
+                      <span>{activeFace ? `${FACE_NAMES[activeFace]} Face` : 'Turn Face'}</span>
+                      <span className="text-neutral-400">•</span>
+                      <span className="text-neutral-200">{isDouble ? '180°' : isPrime ? '90° CCW' : '90° CW'}</span>
+                      {nextStep && (
+                        <span className="text-neutral-400 text-[9px] ml-1">Next: <strong className="text-white">{nextStep.notation}</strong></span>
+                      )}
+                    </div>
+                    <div className="text-[11px] font-bold text-white truncate max-w-[210px]">
+                      {currentAnalogy}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col min-w-0 justify-center">
-                  <div className="flex items-center gap-1 font-mono text-[10px] font-bold text-white">
-                    <span>{activeFace ? `${FACE_NAMES[activeFace]} Face` : 'Turn Face'}</span>
-                    <span className="text-neutral-400">•</span>
-                    <span className="text-neutral-200">{isDouble ? '180°' : isPrime ? '90° CCW' : '90° CW'}</span>
-                    {nextStep && (
-                      <span className="text-neutral-400 text-[9px] ml-1">Next: <strong className="text-white">{nextStep.notation}</strong></span>
-                    )}
-                  </div>
-                  <div className="text-[11px] font-bold text-white truncate max-w-[210px]">
-                    {getSteeringAnalogy(activeStep.notation) || activeStep.description}
-                  </div>
+                <div className="flex-shrink-0 px-2 py-0.5 rounded-md bg-white/10 text-[10px] font-mono font-bold text-neutral-300 border border-white/15">
+                  {currentStepIndex + 1}/{totalSteps}
                 </div>
               </div>
-              <div className="flex-shrink-0 px-2 py-0.5 rounded-md bg-white/10 text-[10px] font-mono font-bold text-neutral-300 border border-white/15">
-                {currentStepIndex + 1}/{totalSteps}
-              </div>
+
+              {/* Mobile Educational Reason Snippet in Learner Mode */}
+              {activeStep.reason && (
+                <div className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-neutral-200 flex items-start gap-1.5 leading-snug">
+                  <Lightbulb className="w-3 h-3 text-amber-300 flex-shrink-0 mt-0.5" />
+                  <span className="line-clamp-2">
+                    {activeStep.reason}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Desktop & Tablet Rich Guidance */}
@@ -418,16 +487,16 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 sm:gap-2 font-mono">
                   <span className="px-2 py-0.5 rounded-md bg-white text-black font-black text-[11px] sm:text-xs tracking-wider">
-                    STEP {currentStepIndex + 1} OF {totalSteps}
+                    {t('step_counter', language)} {currentStepIndex + 1} {t('step_of', language)} {totalSteps}
                   </span>
                   {activeStep.phase && (
-                    <span className="px-2 py-0.5 rounded-full border border-white/20 text-[10px] text-neutral-300 font-semibold truncate max-w-[140px] sm:max-w-[200px]">
+                    <span className="px-2 py-0.5 rounded-full border border-white/20 text-[10px] text-neutral-300 font-semibold truncate max-w-[160px] sm:max-w-[280px]">
                       {activeStep.phase}
                     </span>
                   )}
                 </div>
                 <span className="text-[11px] sm:text-xs font-mono text-neutral-400 font-bold">
-                  {Math.round(((currentStepIndex) / totalSteps) * 100)}% done
+                  {Math.round(((currentStepIndex) / totalSteps) * 100)}% {t('done', language)}
                 </span>
               </div>
 
@@ -456,16 +525,15 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                     <span className="px-1.5 sm:px-2 py-0.5 rounded bg-white/10 text-[10px] font-mono text-neutral-200 border border-white/20 font-bold">
                       {isDouble ? '⟳ 180° Turn' : isPrime ? '↺ 90° CCW' : '↻ 90° CW'}
                     </span>
-                    {/* Next Move Lookahead Pill for Experienced Cubers */}
                     <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-neutral-800 text-[10px] font-mono text-neutral-300 border border-white/15 font-semibold flex items-center gap-1">
-                      <span className="text-neutral-500">Next:</span>
+                      <span className="text-neutral-500">{t('next_move', language)}:</span>
                       <strong className="text-white">{nextStep ? nextStep.notation : 'Done'}</strong>
                     </span>
                   </div>
 
-                  {/* Beginner Steering Wheel Analogy */}
+                  {/* Steering Analogy */}
                   <div className="text-xs sm:text-sm font-bold text-white leading-snug mt-0.5 truncate sm:whitespace-normal">
-                    {getSteeringAnalogy(activeStep.notation) || activeStep.description}
+                    {currentAnalogy}
                   </div>
 
                   <div className="text-[10px] sm:text-[11px] text-neutral-400 font-mono mt-0.5 flex items-center gap-1.5 truncate">
@@ -477,11 +545,45 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                       <RotateCw className="w-3 h-3 text-white stroke-[2.5] flex-shrink-0" />
                     )}
                     <span className="truncate">
-                      Follow {isDouble ? '180°' : isPrime ? 'counter-clockwise ↺' : 'clockwise ↻'} 3D arrow
+                      {t('follow_arrow', language)} ({isDouble ? '180°' : isPrime ? '↺' : '↻'})
                     </span>
                   </div>
                 </div>
               </div>
+
+              {/* Educational Why This Move Box (Present when in Learner Mode) */}
+              {activeStep.reason && (
+                <div 
+                  className="p-3 rounded-xl sm:rounded-2xl border border-white/15 flex flex-col gap-1.5 transition-all shadow-md"
+                  style={{ backgroundColor: 'var(--bg-canvas)' }}
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
+                      <span>{t('why_this_move', language)}</span>
+                      {activeStep.algorithmName && (
+                        <span className="ml-1 px-2 py-0.5 rounded-md bg-white/10 text-[10px] font-mono font-bold text-neutral-300 border border-white/15">
+                          {activeStep.algorithmName}
+                        </span>
+                      )}
+                    </div>
+                    {activeStep.subStage && (
+                      <span className="text-[10px] font-mono text-neutral-400">
+                        {activeStep.subStage}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-200 leading-relaxed font-sans">
+                    {activeStep.reason}
+                  </p>
+                  {activeStep.tip && (
+                    <div className="mt-1 pt-1.5 border-t border-white/10 text-[11px] text-neutral-400 flex items-start gap-1 leading-snug">
+                      <span className="text-amber-300 flex-shrink-0">★</span>
+                      <span>{activeStep.tip}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Move Context Flow: Prev -> Current -> Next */}
               <div 
@@ -492,16 +594,16 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                 }}
               >
                 <div className="flex items-center gap-1 text-neutral-400 truncate">
-                  <span className="text-[10px] uppercase text-neutral-500">Prev:</span>
+                  <span className="text-[10px] uppercase text-neutral-500">{t('prev_move', language)}:</span>
                   <span className="font-bold text-white">
                     {prevStep ? prevStep.notation : 'Start'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-black font-black bg-white px-2 py-0.5 rounded-md text-[11px]">
-                  <span>Active: {activeStep.notation}</span>
+                  <span>{t('active_move', language)}: {activeStep.notation}</span>
                 </div>
                 <div className="flex items-center gap-1 text-neutral-400 truncate">
-                  <span className="text-[10px] uppercase text-neutral-500">Next:</span>
+                  <span className="text-[10px] uppercase text-neutral-500">{t('next_move', language)}:</span>
                   <span className="font-bold text-white">
                     {nextStep ? nextStep.notation : 'Done'}
                   </span>
@@ -522,16 +624,16 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
             {isSolved ? (
               <span className="text-white font-bold flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-white" />
-                Cube is already in solved state! Scramble or load new cube to solve.
+                {t('already_solved', language)}
               </span>
             ) : (
-              'No solution loaded yet. Scramble or scan your cube to generate step-by-step instructions!'
+              t('no_solution_prompt', language)
             )}
           </div>
         )}
       </div>
 
-      {/* Thumb-Friendly Playback Action Bar (min 48px height) */}
+      {/* Thumb-Friendly Playback Action Bar */}
       <div 
         className="flex items-center justify-between gap-1.5 sm:gap-2 p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border shadow-xl transition-colors flex-shrink-0"
         style={{ 
@@ -543,7 +645,7 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
           onClick={handleResetToStart}
           disabled={isAnimating || currentStepIndex === 0}
           className="h-12 min-h-[48px] w-12 min-w-[48px] flex items-center justify-center rounded-xl border border-white/20 hover:bg-white/10 disabled:opacity-25 text-white transition-colors flex-shrink-0 active:scale-95"
-          title="Reset to Step 1 (Shortcut: R)"
+          title={`${t('btn_reset', language)} (R)`}
         >
           <RotateCcw className="w-4 h-4" />
         </button>
@@ -552,10 +654,10 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
           onClick={handleStepBack}
           disabled={isAnimating || currentStepIndex === 0}
           className="h-12 min-h-[48px] flex-1 rounded-xl border border-white/20 hover:bg-white/10 disabled:opacity-25 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95"
-          title="Previous Step (Shortcut: Left Arrow)"
+          title={`${t('btn_prev', language)} (Left Arrow)`}
         >
           <SkipBack className="w-4 h-4" />
-          <span>Prev</span>
+          <span>{t('btn_prev', language)}</span>
         </button>
 
         <button
@@ -566,17 +668,17 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
               ? 'bg-neutral-800 text-white border-white/50' 
               : 'border-white/20 hover:bg-white/10 text-white'
           }`}
-          title="Play / Pause (Shortcut: Space)"
+          title={`${isPlaying ? t('btn_pause', language) : t('btn_play', language)} (Space)`}
         >
           {isPlaying ? (
             <>
               <Pause className="w-4 h-4 fill-white text-white" />
-              <span>Pause</span>
+              <span>{t('btn_pause', language)}</span>
             </>
           ) : (
             <>
               <Play className="w-4 h-4 fill-white text-white" />
-              <span>{currentStepIndex >= totalSteps ? 'Replay' : 'Play'}</span>
+              <span>{currentStepIndex >= totalSteps ? t('btn_replay', language) : t('btn_play', language)}</span>
             </>
           )}
         </button>
@@ -585,9 +687,9 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
           onClick={handleStepForward}
           disabled={isAnimating || currentStepIndex >= totalSteps}
           className="h-12 min-h-[48px] flex-[1.4] rounded-xl bg-white hover:bg-neutral-200 disabled:opacity-25 text-black text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 shadow-lg transition-transform active:scale-95"
-          title="Next Step (Shortcut: Right Arrow)"
+          title={`${t('btn_next', language)} (Right Arrow)`}
         >
-          <span>Next</span>
+          <span>{t('btn_next', language)}</span>
           <SkipForward className="w-4 h-4" />
         </button>
       </div>

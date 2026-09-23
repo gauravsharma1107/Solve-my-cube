@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Camera, Edit3, Timer, Download, Sliders } from 'lucide-react';
+import { t, type AppLanguage } from '../utils/i18n';
 
 export type AppTab = 'solver' | 'editor' | 'timer';
 
@@ -8,13 +9,15 @@ interface NavbarProps {
   onSelectTab: (tab: AppTab) => void;
   onOpenScanner: () => void;
   onOpenSettings: () => void;
+  language?: AppLanguage;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onSelectTab,
   onOpenScanner,
-  onOpenSettings
+  onOpenSettings,
+  language = 'en',
 }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState<boolean>(false);
@@ -94,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Box className="w-3.5 h-3.5" />
-              <span>3D Solver</span>
+              <span>{t('nav_solver', language)}</span>
             </button>
 
             <button
@@ -102,7 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white hover:bg-white/10 border border-white/20 transition-all mx-1"
             >
               <Camera className="w-3.5 h-3.5" />
-              <span>Camera Scan</span>
+              <span>{t('nav_scan', language)}</span>
             </button>
 
             <button
@@ -114,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>Cube Input</span>
+              <span>{t('nav_input', language)}</span>
             </button>
 
             <button
@@ -126,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Timer className="w-3.5 h-3.5" />
-              <span>Timer</span>
+              <span>{t('nav_timer', language)}</span>
             </button>
           </nav>
 
@@ -190,14 +193,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Black Intensity / Theme Settings */}
+            {/* Settings Modal Trigger (Language, Themes, Preferences) */}
             <button
               onClick={onOpenSettings}
               className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg border border-white/15 text-neutral-300 hover:text-white hover:border-white/40 hover:bg-white/10 transition-all flex items-center gap-1.5 text-xs font-medium"
-              title="Adjust Black Theme Intensity"
+              title="Settings (Language, Theme, Learner Preferences)"
             >
               <Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-              <span className="hidden sm:inline text-[11px] font-mono">Theme</span>
+              <span className="hidden sm:inline text-[11px] font-mono">{t('nav_settings', language)}</span>
             </button>
 
             {isInstallable && (
@@ -207,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 title="Install PWA App"
               >
                 <Download className="w-3 h-3" />
-                <span className="hidden sm:inline">Install</span>
+                <span className="hidden sm:inline">{t('nav_install', language)}</span>
               </button>
             )}
 
@@ -219,7 +222,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-white' : 'bg-amber-400'}`} />
-              <span>{isOnline ? 'Ready' : 'Offline'}</span>
+              <span>{isOnline ? t('nav_ready', language) : t('nav_offline', language)}</span>
             </div>
           </div>
         </div>
@@ -244,7 +247,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           title="3D Solver"
         >
           <Box className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-mono tracking-tight">Solver</span>
+          <span className="text-[10px] font-mono tracking-tight">{t('nav_solver', language)}</span>
         </button>
 
         <button
@@ -255,7 +258,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="w-6 h-6 rounded-xl bg-black flex items-center justify-center text-white shadow-md -mt-2.5">
             <Camera className="w-3.5 h-3.5 text-white stroke-[2.5]" />
           </div>
-          <span className="text-[10px] font-bold font-mono text-black mt-0.5">Scan</span>
+          <span className="text-[10px] font-bold font-mono text-black mt-0.5">{t('nav_scan', language)}</span>
         </button>
 
         <button
@@ -268,7 +271,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           title="Cube Input / Net Editor"
         >
           <Edit3 className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-mono tracking-tight">Input</span>
+          <span className="text-[10px] font-mono tracking-tight">{t('nav_input', language)}</span>
         </button>
 
         <button
@@ -281,16 +284,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           title="Speedcubing Timer"
         >
           <Timer className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-mono tracking-tight">Timer</span>
+          <span className="text-[10px] font-mono tracking-tight">{t('nav_timer', language)}</span>
         </button>
 
         <button
           onClick={onOpenSettings}
           className="flex-1 flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-neutral-400 hover:text-white font-medium transition-all"
-          title="Adjust Theme & Black Intensity"
+          title="Settings (Language, Theme, Preferences)"
         >
           <Sliders className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-mono tracking-tight">Theme</span>
+          <span className="text-[10px] font-mono tracking-tight">{t('nav_settings', language)}</span>
         </button>
       </nav>
     </>

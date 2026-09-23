@@ -21,6 +21,7 @@ const tier1Files = [
   'tier1/f12-orbiting-arcs.test.ts',
   'tier1/f13-depth-ghosting.test.ts',
   'tier1/f14-camera-framing.test.ts',
+  'tier1/f15-learner-mode-and-i18n.test.ts',
 ].map(f => path.resolve(__dirname, f));
 
 const tier2Files = [
