@@ -197,35 +197,43 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   const [showFinalReview, setShowFinalReview] = useState<boolean>(false);
   const [isAnimatingTurn, setIsAnimatingTurn] = useState<boolean>(false);
   const [turnAnimationKey, setTurnAnimationKey] = useState<number>(0);
+  // Track the previous step so we know which face color to show as "departing"
+  const [prevScanStep, setPrevScanStep] = useState<number>(0);
 
   const triggerTurnAnimation = () => {
     setIsAnimatingTurn(true);
     setTurnAnimationKey(prev => prev + 1);
     const timer = setTimeout(() => {
       setIsAnimatingTurn(false);
-    }, 1500);
+    }, 1700); // slightly longer than the longest animation (1.6s)
     return () => clearTimeout(timer);
   };
 
   useEffect(() => {
     if (currentScanStep > 0) {
+      setPrevScanStep(currentScanStep - 1);
       triggerTurnAnimation();
     }
   }, [currentScanStep]);
 
-  const getGridAnimationClass = () => {
-    if (!isAnimatingTurn) return '';
-    if (currentScanStep >= 1 && currentScanStep <= 3) {
-      return 'animate-grid-turn-right';
-    }
-    if (currentScanStep === 4) {
-      return 'animate-grid-tilt-down';
-    }
-    if (currentScanStep === 5) {
-      return 'animate-grid-tilt-up';
-    }
+  // Returns the CSS class for the rotating 3D box
+  const getCubeFlipClass = (): string => {
+    if (currentScanStep >= 1 && currentScanStep <= 3) return 'turn-right';
+    if (currentScanStep === 4) return 'tilt-down';
+    if (currentScanStep === 5) return 'tilt-up';
     return '';
   };
+
+  // Color hex for each scan step's face (used in 3D flip overlay)
+  const FACE_COLOR_HEX: Record<number, string> = {
+    0: '#00a651', // Front  = Green
+    1: '#c41e3a', // Right  = Red
+    2: '#003DA5', // Back   = Blue
+    3: '#ff6e00', // Left   = Orange
+    4: '#ffffff', // Top    = White
+    5: '#ffd500', // Bottom = Yellow
+  };
+
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const reticleRef = useRef<HTMLDivElement | null>(null);
@@ -665,72 +673,125 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
 
         {/* 3x3 Reticle Overlay (Matched with exact canvas pixel projection) */}
         <div className="relative z-10 flex flex-col items-center mt-12 sm:mt-14">
-          <div 
-            ref={reticleRef}
-            key={turnAnimationKey}
-            className={`relative w-[min(74vw,280px)] h-[min(74vw,280px)] border-2 border-white/80 rounded-2xl p-2 sm:p-2.5 backdrop-blur-xs shadow-2xl grid grid-cols-3 grid-rows-3 gap-1.5 sm:gap-2 bg-black/40 transition-transform ${getGridAnimationClass()}`}
-          >
-            {/* Animated Turn Instruction Overlay across the grid */}
+
+          {/* Wrapper: positions the reticle AND the 3D overlay on top of each other */}
+          <div className="relative w-[min(74vw,280px)] h-[min(74vw,280px)]">
+
+            {/* Static camera reticle — never rotates */}
+            <div
+              ref={reticleRef}
+              className="absolute inset-0 border-2 border-white/80 rounded-2xl p-2 sm:p-2.5 backdrop-blur-xs shadow-2xl grid grid-cols-3 grid-rows-3 gap-1.5 sm:gap-2 bg-black/40"
+            >
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(idx => {
+                const displayColor = isFaceCaptured
+                  ? scannedFaces[currentFace][idx]
+                  : liveColors[idx];
+                const isCenter = idx === 4;
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (isFaceCaptured && !isCenter) {
+                        setEditingStickerIndex(idx);
+                      }
+                    }}
+                    className={`relative rounded-xl flex items-center justify-center border-2 transition-all duration-150 ${
+                      isCenter
+                        ? 'border-white shadow-lg ring-2 ring-white/40'
+                        : 'border-black/50 shadow-md'
+                    } ${isFaceCaptured && !isCenter ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}`}
+                    style={{
+                      backgroundColor: CUBE_COLORS[displayColor]?.hex || '#222226',
+                    }}
+                  >
+                    {isCenter && (
+                      <span className="text-[9px] font-black text-black px-1.5 py-0.5 rounded bg-white font-mono">
+                        CENTER
+                      </span>
+                    )}
+                    {isFaceCaptured && !isCenter && (
+                      <span className="text-[9px] font-mono font-bold text-black px-1 rounded bg-white/90">
+                        {CUBE_COLORS[displayColor]?.code}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* TRUE 3D CUBE-FLIP OVERLAY — shown only during turn animation */}
             {isAnimatingTurn && (
-              <div className="absolute inset-0 z-30 rounded-2xl bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center pointer-events-none transition-all">
-                <div className="w-14 h-14 rounded-2xl bg-white text-black flex items-center justify-center mb-2 shadow-2xl">
-                  {currentScanStep >= 1 && currentScanStep <= 3 ? (
-                    <RotateCw className="w-8 h-8 stroke-[2.5]" />
-                  ) : currentScanStep === 4 ? (
-                    <ChevronRight className="w-8 h-8 stroke-[2.5] rotate-90" />
-                  ) : (
-                    <ChevronRight className="w-8 h-8 stroke-[2.5] -rotate-90" />
-                  )}
+              <div
+                key={turnAnimationKey}
+                className="absolute inset-0 z-30 rounded-2xl overflow-hidden cube-anim-stage cube-anim-fadein"
+                style={{ borderRadius: '1rem' }}
+              >
+                {/* The 3D rotating box */}
+                <div className={`cube-anim-box ${getCubeFlipClass()}`}>
+
+                  {/* CURRENT FACE (departing) — solid color of the face we just scanned */}
+                  <div
+                    className="cube-face-current flex flex-col items-center justify-center gap-2 border-2 border-white/30"
+                    style={{
+                      background: `linear-gradient(135deg, ${FACE_COLOR_HEX[prevScanStep]}dd, ${FACE_COLOR_HEX[prevScanStep]}88)`,
+                    }}
+                  >
+                    {/* 3x3 sticker grid visual */}
+                    <div className="grid grid-cols-3 gap-1.5 w-28 h-28 p-2">
+                      {Array(9).fill(0).map((_, i) => (
+                        <div
+                          key={i}
+                          className="rounded-md border border-black/30 shadow"
+                          style={{ backgroundColor: FACE_COLOR_HEX[prevScanStep] }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-black/70 text-[11px] font-black font-mono uppercase tracking-wider bg-white/60 px-2 py-0.5 rounded-full">
+                      Scanned ✓
+                    </span>
+                  </div>
+
+                  {/* NEXT FACE (arriving) — solid color of the face we're rotating to */}
+                  <div
+                    className="cube-face-next flex flex-col items-center justify-center gap-2 border-2 border-white/30"
+                    style={{
+                      background: `linear-gradient(135deg, ${FACE_COLOR_HEX[currentScanStep]}dd, ${FACE_COLOR_HEX[currentScanStep]}88)`,
+                    }}
+                  >
+                    {/* 3x3 sticker grid visual */}
+                    <div className="grid grid-cols-3 gap-1.5 w-28 h-28 p-2">
+                      {Array(9).fill(0).map((_, i) => (
+                        <div
+                          key={i}
+                          className="rounded-md border border-black/30 shadow opacity-60"
+                          style={{ backgroundColor: FACE_COLOR_HEX[currentScanStep] }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-black/70 text-[11px] font-black font-mono uppercase tracking-wider bg-white/60 px-2 py-0.5 rounded-full">
+                      {guidance.rotationPrompt}
+                    </span>
+                  </div>
+
                 </div>
-                <span className="text-xs font-black font-mono text-white tracking-tight uppercase">
-                  {guidance.actionBanner}
-                </span>
-                <span className="text-[10px] text-neutral-300 mt-0.5 font-medium line-clamp-1">
-                  {guidance.actionSub}
-                </span>
+
+                {/* Text instruction pinned at bottom of overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/80 py-2 px-3 text-center pointer-events-none">
+                  <p className="text-white text-[11px] font-black font-mono tracking-tight leading-tight">
+                    {guidance.actionBanner}
+                  </p>
+                  <p className="text-neutral-300 text-[9px] mt-0.5 leading-snug">
+                    {guidance.actionSub}
+                  </p>
+                </div>
               </div>
             )}
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(idx => {
-              const displayColor = isFaceCaptured 
-                ? scannedFaces[currentFace][idx] 
-                : liveColors[idx];
-              const isCenter = idx === 4;
-
-              return (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    if (isFaceCaptured && !isCenter) {
-                      setEditingStickerIndex(idx);
-                    }
-                  }}
-                  className={`relative rounded-xl flex items-center justify-center border-2 transition-all duration-150 ${
-                    isCenter 
-                      ? 'border-white shadow-lg ring-2 ring-white/40' 
-                      : 'border-black/50 shadow-md'
-                  } ${isFaceCaptured && !isCenter ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}`}
-                  style={{
-                    backgroundColor: CUBE_COLORS[displayColor]?.hex || '#222226',
-                  }}
-                >
-                  {isCenter && (
-                    <span className="text-[9px] font-black text-black px-1.5 py-0.5 rounded bg-white font-mono">
-                      CENTER
-                    </span>
-                  )}
-                  {isFaceCaptured && !isCenter && (
-                    <span className="text-[9px] font-mono font-bold text-black px-1 rounded bg-white/90">
-                      {CUBE_COLORS[displayColor]?.code}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
           </div>
 
           <div className="mt-3 px-3 py-1 rounded-full bg-black/85 backdrop-blur border border-white/25 text-xs text-neutral-200 shadow-md">
-            {isFaceCaptured 
-              ? 'Tap any sticker to adjust if needed, then Confirm' 
+            {isFaceCaptured
+              ? 'Tap any sticker to adjust if needed, then Confirm'
               : 'Fit cube inside the 3x3 grid'}
           </div>
         </div>
