@@ -34,7 +34,9 @@ function lerp(start: number, end: number, t: number): number {
   return Math.round(start + (end - start) * t);
 }
 
-export function applyBlackIntensity(intensity: number) {
+let transitionTimeout: ReturnType<typeof setTimeout> | null = null;
+
+export function applyBlackIntensity(intensity: number, enableTransition: boolean = false) {
   const clamped = Math.max(0, Math.min(100, intensity));
   const t = (100 - clamped) / 100; // 0 for OLED (100%), 1 for lowest intensity (0%)
 
@@ -63,7 +65,26 @@ export function applyBlackIntensity(intensity: number) {
   const borderStrongAlpha = (0.28 - 0.10 * t).toFixed(3);
 
   const root = document.documentElement;
-  root.style.setProperty('--bg-canvas', `rgb(${cR}, ${cG}, ${cB})`);
+
+  if (enableTransition) {
+    root.classList.add('theme-transitioning');
+    if (transitionTimeout) {
+      clearTimeout(transitionTimeout);
+    }
+    transitionTimeout = setTimeout(() => {
+      root.classList.remove('theme-transitioning');
+      transitionTimeout = null;
+    }, 250);
+  } else {
+    root.classList.remove('theme-transitioning');
+  }
+
+  const canvasBg = `rgb(${cR}, ${cG}, ${cB})`;
+  root.style.setProperty('--bg-canvas', canvasBg);
+  root.style.backgroundColor = canvasBg;
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.style.backgroundColor = canvasBg;
+  }
   root.style.setProperty('--bg-surface', `rgb(${sR}, ${sG}, ${sB})`);
   root.style.setProperty('--bg-card', `rgb(${cdR}, ${cdG}, ${cdB})`);
   root.style.setProperty('--bg-elevated', `rgb(${eR}, ${eG}, ${eB})`);
@@ -84,6 +105,9 @@ export function getInitialIntensity(): number {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
+      if (saved in PRESETS) {
+        return PRESETS[saved as BlackIntensityPreset].value;
+      }
       const parsed = parseInt(saved, 10);
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
         return parsed;

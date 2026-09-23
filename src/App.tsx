@@ -1,17 +1,64 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Navbar, type AppTab } from './components/Navbar';
 import { Cube3DViewer, type Cube3DViewerRef } from './components/Cube3DViewer';
 import { StepSolverGuide } from './components/StepSolverGuide';
-import { CubeNetEditor } from './components/CubeNetEditor';
-import { CameraScanner } from './components/CameraScanner';
-import { ScrambleAndTimer, generateWcaScramble } from './components/ScrambleAndTimer';
-import { ThemeSettingsModal } from './components/ThemeSettingsModal';
 import { getInitialIntensity, applyBlackIntensity } from './utils/themeManager';
-import type { CubeColor, CubeState, FaceState, SolutionStep, SolverMode } from './solver/cubeTypes';
+import type { CubeColor, CubeState, Face, FaceState, SolutionStep, SolverMode } from './solver/cubeTypes';
 import { applyMove, applyMoveSequence, invertMove, isCubeSolved } from './solver/moveParser';
-import { solveWithKociemba, initKociembaSolver } from './solver/kociemba';
-import { solveWithBeginnerMethod } from './solver/beginnerSolver';
+import { initSolverService, solveCube } from './solver/solverService';
 import { validateCubeParity } from './solver/parityValidator';
+
+// Lazy-loaded modal and tab views to optimize critical initial bundle size
+const CameraScanner = lazy(() =>
+  import('./components/CameraScanner').then(m => ({ default: m.CameraScanner }))
+);
+const CubeNetEditor = lazy(() =>
+  import('./components/CubeNetEditor').then(m => ({ default: m.CubeNetEditor }))
+);
+const ScrambleAndTimer = lazy(() =>
+  import('./components/ScrambleAndTimer').then(m => ({ default: m.ScrambleAndTimer }))
+);
+const ThemeSettingsModal = lazy(() =>
+  import('./components/ThemeSettingsModal').then(m => ({ default: m.ThemeSettingsModal }))
+);
+
+const SCRAMBLE_FACES: Face[] = ['U', 'D', 'L', 'R', 'F', 'B'];
+const SCRAMBLE_MODIFIERS = ['', "'", '2'];
+
+function areOppositeFaces(f1: Face, f2: Face): boolean {
+  return (
+    (f1 === 'U' && f2 === 'D') ||
+    (f1 === 'D' && f2 === 'U') ||
+    (f1 === 'L' && f2 === 'R') ||
+    (f1 === 'R' && f2 === 'L') ||
+    (f1 === 'F' && f2 === 'B') ||
+    (f1 === 'B' && f2 === 'F')
+  );
+}
+
+function generateDefaultScramble(length: number = 16): string {
+  const scramble: string[] = [];
+  let lastFace: Face | null = null;
+  let secondLastFace: Face | null = null;
+
+  for (let i = 0; i < length; i++) {
+    let face: Face;
+    do {
+      face = SCRAMBLE_FACES[Math.floor(Math.random() * SCRAMBLE_FACES.length)];
+    } while (
+      face === lastFace ||
+      (face === secondLastFace && areOppositeFaces(face, lastFace!))
+    );
+
+    const mod = SCRAMBLE_MODIFIERS[Math.floor(Math.random() * SCRAMBLE_MODIFIERS.length)];
+    scramble.push(`${face}${mod}`);
+
+    secondLastFace = lastFace;
+    lastFace = face;
+  }
+
+  return scramble.join(' ');
+}
 
 function createSolvedCube(): CubeState {
   const makeFace = (c: CubeColor): FaceState => [c, c, c, c, c, c, c, c, c];
@@ -41,21 +88,26 @@ export const App: React.FC = () => {
   const [parityError, setParityError] = useState<string | null>(null);
 
   const cube3DRef = useRef<Cube3DViewerRef | null>(null);
+  const isInitialMount = useRef(true);
 
-  // Apply black intensity to CSS variables
+  // Apply black intensity to CSS variables (instant on initial mount, smooth during user slider interaction)
   useEffect(() => {
-    applyBlackIntensity(blackIntensity);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      applyBlackIntensity(blackIntensity, false);
+    } else {
+      applyBlackIntensity(blackIntensity, true);
+    }
   }, [blackIntensity]);
 
+  // Pre-warm solver in background Web Worker without freezing UI
   useEffect(() => {
-    try {
-      initKociembaSolver();
-    } catch {
-      // Ignore
-    }
+    initSolverService().catch(err => {
+      console.warn('Background solver service initialization notice:', err);
+    });
   }, []);
 
-  const computeSolution = (state: CubeState, mode: SolverMode) => {
+  const computeSolution = async (state: CubeState, mode: SolverMode) => {
     const parity = validateCubeParity(state);
     if (!parity.isValid) {
       setParityError(parity.errors[0] || 'Parity validation failed.');
@@ -66,13 +118,8 @@ export const App: React.FC = () => {
     setParityError(null);
 
     try {
-      let steps: SolutionStep[] = [];
-      if (mode === 'optimal') {
-        steps = solveWithKociemba(state);
-      } else {
-        steps = solveWithBeginnerMethod(state);
-      }
-      setSolutionSteps(steps);
+      const result = await solveCube(state, mode);
+      setSolutionSteps(result.steps);
       setCurrentStepIndex(0);
     } catch (e) {
       console.error('Solver error:', e);
@@ -112,7 +159,7 @@ export const App: React.FC = () => {
   };
 
   const handleScramble = (customScramble?: string) => {
-    const seq = customScramble || generateWcaScramble(16);
+    const seq = customScramble || generateDefaultScramble(16);
     const scrambled = applyMoveSequence(createSolvedCube(), seq);
     setInitialScrambledState(scrambled);
     setCubeState(scrambled);
@@ -144,7 +191,7 @@ export const App: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen text-white flex flex-col font-sans transition-colors duration-200"
+      className="h-[100dvh] max-h-[100dvh] overflow-hidden text-white flex flex-col font-sans select-none"
       style={{ backgroundColor: 'var(--bg-canvas)' }}
     >
       <Navbar
@@ -154,12 +201,12 @@ export const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-5 pb-24 md:pb-6 flex flex-col gap-4">
+      <main className={`flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 min-h-0 flex flex-col ${activeTab === 'solver' ? 'overflow-hidden pb-1 sm:pb-4' : 'overflow-y-auto pb-24 md:pb-6'}`}>
         {activeTab === 'solver' && (
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 items-start">
-            {/* 3D Visualizer Viewport */}
+          <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-2 sm:gap-4 overflow-hidden">
+            {/* 3D Visualizer Viewport: flexible flex-1 on mobile, min-h-[220px] */}
             <div 
-              className="lg:col-span-7 h-[280px] xs:h-[330px] sm:h-[420px] lg:h-[520px] xl:h-[560px] w-full rounded-2xl sm:rounded-3xl border shadow-2xl relative overflow-hidden flex flex-col transition-colors"
+              className="flex-1 min-h-[220px] lg:h-full lg:col-span-7 w-full rounded-2xl sm:rounded-3xl border shadow-2xl relative overflow-hidden flex flex-col transition-colors"
               style={{ 
                 backgroundColor: 'var(--bg-card)', 
                 borderColor: 'var(--border-subtle)' 
@@ -178,10 +225,10 @@ export const App: React.FC = () => {
               />
             </div>
 
-            {/* Right Instructions & Playback Guide */}
-            <div className="lg:col-span-5 flex flex-col gap-3.5">
+            {/* Solver Controls: docked at bottom on mobile, scrollable sidebar on desktop */}
+            <div className="lg:col-span-5 flex flex-col overflow-hidden lg:overflow-y-auto flex-shrink-0">
               {parityError && (
-                <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex flex-col gap-1.5 shadow-md">
+                <div className="mb-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex flex-col gap-1 shadow-md">
                   <div className="font-semibold flex items-center gap-1.5 text-amber-300">
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
                     Cube State Validation Warning
@@ -215,51 +262,59 @@ export const App: React.FC = () => {
 
         {activeTab === 'editor' && (
           <div className="max-w-4xl mx-auto w-full">
-            <CubeNetEditor
-              cubeState={cubeState}
-              onChange={(newState) => {
-                setCubeState(newState);
-                setInitialScrambledState(newState);
-              }}
-              onSolve={() => {
-                computeSolution(cubeState, solverMode);
-                setActiveTab('solver');
-              }}
-              onOpenScanner={() => setIsScannerOpen(true)}
-              onScramble={() => handleScramble()}
-              onReset={handleReset}
-            />
+            <Suspense fallback={<div className="p-8 text-center text-neutral-400">Loading editor...</div>}>
+              <CubeNetEditor
+                cubeState={cubeState}
+                onChange={(newState) => {
+                  setCubeState(newState);
+                  setInitialScrambledState(newState);
+                }}
+                onSolve={() => {
+                  computeSolution(cubeState, solverMode);
+                  setActiveTab('solver');
+                }}
+                onOpenScanner={() => setIsScannerOpen(true)}
+                onScramble={() => handleScramble()}
+                onReset={handleReset}
+              />
+            </Suspense>
           </div>
         )}
 
         {activeTab === 'timer' && (
           <div className="max-w-3xl mx-auto w-full">
-            <ScrambleAndTimer
-              onApplyScramble={(scrambleStr) => {
-                handleScramble(scrambleStr);
-              }}
-              onOpen3DSolver={() => setActiveTab('solver')}
-            />
+            <Suspense fallback={<div className="p-8 text-center text-neutral-400">Loading timer...</div>}>
+              <ScrambleAndTimer
+                onApplyScramble={(scrambleStr) => {
+                  handleScramble(scrambleStr);
+                }}
+                onOpen3DSolver={() => setActiveTab('solver')}
+              />
+            </Suspense>
           </div>
         )}
       </main>
 
       {/* Camera Scanner Modal */}
       {isScannerOpen && (
-        <CameraScanner
-          initialState={cubeState}
-          onScanComplete={handleScanComplete}
-          onCancel={() => setIsScannerOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <CameraScanner
+            initialState={cubeState}
+            onScanComplete={handleScanComplete}
+            onCancel={() => setIsScannerOpen(false)}
+          />
+        </Suspense>
       )}
 
       {/* Theme & Black Intensity Modal */}
-      <ThemeSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        intensity={blackIntensity}
-        onIntensityChange={setBlackIntensity}
-      />
+      <Suspense fallback={null}>
+        <ThemeSettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          intensity={blackIntensity}
+          onIntensityChange={setBlackIntensity}
+        />
+      </Suspense>
     </div>
   );
 };

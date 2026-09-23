@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Face } from '../solver/cubeTypes';
 
 interface ScanGuide3DProps {
@@ -80,6 +81,23 @@ export const STEP_INSTRUCTIONS = [
   },
 ];
 
+// Helper: 2D rounded rectangle shape for authentic speedcube vinyl stickers
+function createRoundedRectShape(width: number, height: number, radius: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  const x = -width / 2;
+  const y = -height / 2;
+  shape.moveTo(x + radius, y);
+  shape.lineTo(x + width - radius, y);
+  shape.quadraticCurveTo(x + width, y, x + width, y + radius);
+  shape.lineTo(x + width, y + height - radius);
+  shape.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  shape.lineTo(x + radius, y + height);
+  shape.quadraticCurveTo(x, y + height, x, y + height - radius);
+  shape.lineTo(x, y + radius);
+  shape.quadraticCurveTo(x, y, x + radius, y);
+  return shape;
+}
+
 // Easing function: smooth cubic ease-in-out
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -134,34 +152,66 @@ export const ScanGuide3D: React.FC<ScanGuide3DProps> = ({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    // 3. Renderer with antialiasing and transparent background
+    // 3. Renderer with ACES tone mapping and sRGB color space (R1)
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = false;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // 4. Lights: authentic plastic appearance
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+    // 4. Studio 4-Point Lighting (Key 2.0, Fill 0.85, Rim 1.1, Ambient 0.55) (R1)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.75);
-    dirLight1.position.set(4, 6, 5);
-    scene.add(dirLight1);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    keyLight.position.set(4, 6, 5);
+    scene.add(keyLight);
 
-    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.35);
-    dirLight2.position.set(-4, -3, -3);
-    scene.add(dirLight2);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    fillLight.position.set(-4, -3, -3);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    rimLight.position.set(-4, 5, -5);
+    scene.add(rimLight);
+
+    // Subtle Grounding Contact Shadow Plane under the cube (R1)
+    const shadowGeo = new THREE.PlaneGeometry(5.2, 5.2);
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 256;
+    shadowCanvas.height = 256;
+    const sCtx = shadowCanvas.getContext('2d');
+    if (sCtx) {
+      const gradient = sCtx.createRadialGradient(128, 128, 20, 128, 128, 120);
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
+      gradient.addColorStop(0.45, 'rgba(0, 0, 0, 0.18)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      sCtx.fillStyle = gradient;
+      sCtx.fillRect(0, 0, 256, 256);
+    }
+    const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      depthWrite: false,
+      opacity: 0.8
+    });
+    const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.y = -2.25;
+    scene.add(shadowPlane);
 
     // 5. Materials
     const blackPlastic = new THREE.MeshStandardMaterial({
       color: 0x111111,
-      roughness: 0.65,
+      roughness: 0.55,
       metalness: 0.1,
     });
 
-    // Real Rubik's vinyl sticker colors
+    // Real Rubik's vinyl sticker colors with authentic satin finish (roughness: 0.18, metalness: 0.0)
     const STICKER_COLORS = {
       W: 0xffffff, // White  (Top)
       Y: 0xffd500, // Yellow (Bottom)
@@ -172,25 +222,32 @@ export const ScanGuide3D: React.FC<ScanGuide3DProps> = ({
     };
 
     const stickerMaterials: Record<keyof typeof STICKER_COLORS, THREE.MeshStandardMaterial> = {
-      W: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.W, roughness: 0.3, metalness: 0.05 }),
-      Y: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.Y, roughness: 0.3, metalness: 0.05 }),
-      G: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.G, roughness: 0.3, metalness: 0.05 }),
-      B: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.B, roughness: 0.3, metalness: 0.05 }),
-      R: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.R, roughness: 0.3, metalness: 0.05 }),
-      O: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.O, roughness: 0.3, metalness: 0.05 }),
+      W: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.W, roughness: 0.18, metalness: 0.0 }),
+      Y: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.Y, roughness: 0.18, metalness: 0.0 }),
+      G: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.G, roughness: 0.18, metalness: 0.0 }),
+      B: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.B, roughness: 0.18, metalness: 0.0 }),
+      R: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.R, roughness: 0.18, metalness: 0.0 }),
+      O: new THREE.MeshStandardMaterial({ color: STICKER_COLORS.O, roughness: 0.18, metalness: 0.0 }),
     };
 
-    // 6. Build the 3D Rubik's Cube with 27 cubies and beveled stickers
+    // 6. Build the 3D Rubik's Cube with 27 solid beveled cubies, core mesh, and vinyl stickers
     const cubeGroup = new THREE.Group();
     cubeGroupRef.current = cubeGroup;
     scene.add(cubeGroup);
 
-    const cubieSize = 0.94;
-    const stickerSize = 0.82;
-    const cubieGeo = new THREE.BoxGeometry(cubieSize, cubieSize, cubieSize);
-    const stickerGeo = new THREE.PlaneGeometry(stickerSize, stickerSize);
+    // Solid Central Core Mesh (R1) at (0, 0, 0)
+    const coreGeo = new RoundedBoxGeometry(1.95, 1.95, 1.95, 3, 0.2);
+    const coreMesh = new THREE.Mesh(coreGeo, blackPlastic);
+    coreMesh.position.set(0, 0, 0);
+    cubeGroup.add(coreMesh);
 
-    const halfDist = cubieSize / 2 + 0.005; // sticker offset just outside cubie
+    // Solid Beveled Cubies (0.965, 3, 0.045) leaving narrow 0.035 seams
+    const cubieGeo = new RoundedBoxGeometry(0.965, 0.965, 0.965, 3, 0.045);
+
+    // 54 Rounded Rectangle Vinyl Stickers (0.85 x 0.85, radius 0.06) with crisp 0.0575 black borders
+    const stickerShape = createRoundedRectShape(0.85, 0.85, 0.06);
+    const stickerGeo = new THREE.ShapeGeometry(stickerShape, 12);
+    const halfDist = 0.4855; // Sits on outer cubie face
 
     for (let x = -1; x <= 1; x++) {
       for (let y = -1; y <= 1; y++) {
@@ -199,47 +256,47 @@ export const ScanGuide3D: React.FC<ScanGuide3DProps> = ({
           cubie.position.set(x, y, z);
           cubeGroup.add(cubie);
 
-          // Stickers on outer faces
+          // Stickers on outer faces attached directly as children of cubie
           // +X: Right (Red)
           if (x === 1) {
             const sticker = new THREE.Mesh(stickerGeo, stickerMaterials.R);
-            sticker.position.set(x + halfDist, y, z);
+            sticker.position.set(halfDist, 0, 0);
             sticker.rotation.y = Math.PI / 2;
-            cubeGroup.add(sticker);
+            cubie.add(sticker);
           }
           // -X: Left (Orange)
           if (x === -1) {
             const sticker = new THREE.Mesh(stickerGeo, stickerMaterials.O);
-            sticker.position.set(x - halfDist, y, z);
+            sticker.position.set(-halfDist, 0, 0);
             sticker.rotation.y = -Math.PI / 2;
-            cubeGroup.add(sticker);
+            cubie.add(sticker);
           }
           // +Y: Top (White)
           if (y === 1) {
             const sticker = new THREE.Mesh(stickerGeo, stickerMaterials.W);
-            sticker.position.set(x, y + halfDist, z);
+            sticker.position.set(0, halfDist, 0);
             sticker.rotation.x = -Math.PI / 2;
-            cubeGroup.add(sticker);
+            cubie.add(sticker);
           }
           // -Y: Bottom (Yellow)
           if (y === -1) {
             const sticker = new THREE.Mesh(stickerGeo, stickerMaterials.Y);
-            sticker.position.set(x, y - halfDist, z);
+            sticker.position.set(0, -halfDist, 0);
             sticker.rotation.x = Math.PI / 2;
-            cubeGroup.add(sticker);
+            cubie.add(sticker);
           }
           // +Z: Front (Green)
           if (z === 1) {
             const sticker = new THREE.Mesh(stickerGeo, stickerMaterials.G);
-            sticker.position.set(x, y, z + halfDist);
-            cubeGroup.add(sticker);
+            sticker.position.set(0, 0, halfDist);
+            cubie.add(sticker);
           }
           // -Z: Back (Blue)
           if (z === -1) {
             const sticker = new THREE.Mesh(stickerGeo, stickerMaterials.B);
-            sticker.position.set(x, y, z - halfDist);
+            sticker.position.set(0, 0, -halfDist);
             sticker.rotation.y = Math.PI;
-            cubeGroup.add(sticker);
+            cubie.add(sticker);
           }
         }
       }
@@ -298,7 +355,11 @@ export const ScanGuide3D: React.FC<ScanGuide3DProps> = ({
       }
       renderer.dispose();
       cubieGeo.dispose();
+      coreGeo.dispose();
       stickerGeo.dispose();
+      shadowGeo.dispose();
+      shadowMat.dispose();
+      shadowTexture.dispose();
       blackPlastic.dispose();
       Object.values(stickerMaterials).forEach(m => m.dispose());
       while (container.firstChild) {

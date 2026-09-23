@@ -11,7 +11,7 @@
     
     <!-- PWA & Mobile Web App Manifest -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#000000" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,8 +25,45 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Pre-paint instant theme application script (0ms delay) -->
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('cubesync_theme_intensity');
+          var bgMap = {
+            'oled': '#000000',
+            'obsidian': '#09090b',
+            'charcoal': '#141417',
+            'graphite': '#1e1e24',
+            'midnight': '#05070f',
+            'slate': '#0f172a'
+          };
+          var bg = '#000000';
+          if (raw !== null) {
+            if (bgMap[raw]) {
+              bg = bgMap[raw];
+            } else {
+              var parsed = parseInt(raw, 10);
+              if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+                var t = (100 - parsed) / 100;
+                var cR = Math.round(40 * t);
+                var cG = Math.round(40 * t);
+                var cB = Math.round(48 * t);
+                bg = 'rgb(' + cR + ', ' + cG + ', ' + cB + ')';
+              }
+            }
+          }
+          document.documentElement.style.setProperty('--bg-canvas', bg);
+          document.documentElement.style.backgroundColor = bg;
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) metaTheme.setAttribute('content', bg);
+        } catch (e) {
+          // Fallback if localStorage is inaccessible
+        }
+      })();
+    </script>
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased select-none touch-manipulation">
+  <body class="text-slate-100 antialiased select-none touch-manipulation" style="background-color: var(--bg-canvas);">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

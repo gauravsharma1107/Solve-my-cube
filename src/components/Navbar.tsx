@@ -55,21 +55,21 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       {/* Top Header Bar */}
       <header 
-        className="w-full sticky top-0 z-40 px-3 sm:px-6 py-2.5 backdrop-blur-md border-b transition-colors"
+        className="w-full sticky top-0 z-40 px-2.5 sm:px-6 py-2 sm:py-2.5 backdrop-blur-md border-b transition-colors flex-shrink-0"
         style={{ 
           backgroundColor: 'var(--bg-surface)', 
           borderColor: 'var(--border-subtle)' 
         }}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center font-bold shadow-sm flex-shrink-0">
-              <Box className="w-5 h-5 text-black stroke-[2.2]" />
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white text-black flex items-center justify-center font-bold shadow-sm flex-shrink-0">
+              <Box className="w-4 h-4 sm:w-5 sm:h-5 text-black stroke-[2.2]" />
             </div>
             <div>
-              <h1 className="text-sm sm:text-base font-black text-white tracking-wider flex items-center gap-1.5 m-0 font-mono">
-                CUBESYNC <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white border border-white/20">3D</span>
+              <h1 className="text-xs sm:text-base font-black text-white tracking-wider flex items-center gap-1 sm:gap-1.5 m-0 font-mono">
+                CUBESYNC <span className="text-[9px] sm:text-[10px] font-mono px-1 py-0.2 rounded bg-white/10 text-white border border-white/20">3D</span>
               </h1>
               <p className="text-[10px] text-neutral-400 hidden sm:block">
                 Precision Rubik's Cube Solver & Scanner
@@ -130,32 +130,80 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Right Header Actions */}
-          <div className="flex items-center gap-2">
-            {/* Quick camera button on mobile */}
+          {/* Mobile Header Navigation Tabs */}
+          <nav 
+            aria-label="Mobile Navigation"
+            className="flex md:hidden items-center p-0.5 rounded-xl border gap-0.5"
+            style={{ 
+              backgroundColor: 'var(--bg-card)', 
+              borderColor: 'var(--border-subtle)' 
+            }}
+          >
             <button
-              onClick={onOpenScanner}
-              className="md:hidden flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-colors"
-              title="Open Camera Scanner"
+              onClick={() => onSelectTab('solver')}
+              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                activeTab === 'solver'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="3D Solver"
             >
-              <Camera className="w-3.5 h-3.5" />
-              <span>Scan</span>
+              <Box className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Solve</span>
             </button>
 
+            <button
+              onClick={onOpenScanner}
+              className="px-1.5 py-1 rounded-lg text-[11px] font-bold text-white hover:bg-white/10 transition-all flex items-center gap-1"
+              title="Camera Scan"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Scan</span>
+            </button>
+
+            <button
+              onClick={() => onSelectTab('editor')}
+              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                activeTab === 'editor'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Cube Input"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Input</span>
+            </button>
+
+            <button
+              onClick={() => onSelectTab('timer')}
+              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
+                activeTab === 'timer'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Timer"
+            >
+              <Timer className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Timer</span>
+            </button>
+          </nav>
+
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* Black Intensity / Theme Settings */}
             <button
               onClick={onOpenSettings}
               className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg border border-white/15 text-neutral-300 hover:text-white hover:border-white/40 hover:bg-white/10 transition-all flex items-center gap-1.5 text-xs font-medium"
               title="Adjust Black Theme Intensity"
             >
-              <Sliders className="w-4 h-4 text-white" />
+              <Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
               <span className="hidden sm:inline text-[11px] font-mono">Theme</span>
             </button>
 
             {isInstallable && (
               <button
                 onClick={handleInstallClick}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white text-black font-bold text-[11px] hover:bg-neutral-200 transition-colors shadow-sm"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white text-black font-bold text-[11px] hover:bg-neutral-200 transition-colors shadow-sm"
                 title="Install PWA App"
               >
                 <Download className="w-3 h-3" />
@@ -164,74 +212,76 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             <div
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+              className={`hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono border ${
                 isOnline
                   ? 'bg-white/5 border-white/20 text-neutral-300'
                   : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-white' : 'bg-amber-400'}`} />
-              <span className="hidden sm:inline">{isOnline ? 'Ready' : 'Offline'}</span>
+              <span>{isOnline ? 'Ready' : 'Offline'}</span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Fixed Mobile Bottom Navigation Bar (md:hidden) */}
-      <nav 
-        aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t px-2 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl flex items-center justify-around transition-colors"
-        style={{ 
-          backgroundColor: 'var(--bg-surface)', 
-          borderColor: 'var(--border-subtle)' 
-        }}
-      >
-        <button
-          onClick={() => onSelectTab('solver')}
-          className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
-            activeTab === 'solver'
-              ? 'text-white font-black bg-white/15'
-              : 'text-neutral-400 hover:text-white font-medium'
-          }`}
+      {/* Mobile Bottom Navigation Bar: active only when NOT on solver tab to prevent bottom dock obstruction */}
+      {activeTab !== 'solver' && (
+        <nav 
+          aria-label="Mobile Navigation"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t px-2 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl flex items-center justify-around transition-colors"
+          style={{ 
+            backgroundColor: 'var(--bg-surface)', 
+            borderColor: 'var(--border-subtle)' 
+          }}
         >
-          <Box className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-mono tracking-tight">Solver</span>
-        </button>
+          <button
+            onClick={() => onSelectTab('solver')}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
+              (activeTab as string) === 'solver'
+                ? 'text-white font-black bg-white/15'
+                : 'text-neutral-400 hover:text-white font-medium'
+            }`}
+          >
+            <Box className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-mono tracking-tight">Solver</span>
+          </button>
 
-        <button
-          onClick={onOpenScanner}
-          className="flex-1 flex flex-col items-center justify-center py-1 px-2 mx-1 rounded-2xl bg-white text-black font-bold shadow-md transition-transform active:scale-95"
-        >
-          <div className="w-7 h-7 rounded-xl bg-black flex items-center justify-center text-white shadow-md -mt-3.5">
-            <Camera className="w-4 h-4 text-white stroke-[2.5]" />
-          </div>
-          <span className="text-[10px] font-bold font-mono text-black mt-0.5">Scan</span>
-        </button>
+          <button
+            onClick={onOpenScanner}
+            className="flex-1 flex flex-col items-center justify-center py-1 px-2 mx-1 rounded-2xl bg-white text-black font-bold shadow-md transition-transform active:scale-95"
+          >
+            <div className="w-7 h-7 rounded-xl bg-black flex items-center justify-center text-white shadow-md -mt-3.5">
+              <Camera className="w-4 h-4 text-white stroke-[2.5]" />
+            </div>
+            <span className="text-[10px] font-bold font-mono text-black mt-0.5">Scan</span>
+          </button>
 
-        <button
-          onClick={() => onSelectTab('editor')}
-          className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
-            activeTab === 'editor'
-              ? 'text-white font-black bg-white/15'
-              : 'text-neutral-400 hover:text-white font-medium'
-          }`}
-        >
-          <Edit3 className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-mono tracking-tight">Input</span>
-        </button>
+          <button
+            onClick={() => onSelectTab('editor')}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
+              activeTab === 'editor'
+                ? 'text-white font-black bg-white/15'
+                : 'text-neutral-400 hover:text-white font-medium'
+            }`}
+          >
+            <Edit3 className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-mono tracking-tight">Input</span>
+          </button>
 
-        <button
-          onClick={() => onSelectTab('timer')}
-          className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
-            activeTab === 'timer'
-              ? 'text-white font-black bg-white/15'
-              : 'text-neutral-400 hover:text-white font-medium'
-          }`}
-        >
-          <Timer className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-mono tracking-tight">Timer</span>
-        </button>
-      </nav>
+          <button
+            onClick={() => onSelectTab('timer')}
+            className={`flex-1 flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all ${
+              activeTab === 'timer'
+                ? 'text-white font-black bg-white/15'
+                : 'text-neutral-400 hover:text-white font-medium'
+            }`}
+          >
+            <Timer className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-mono tracking-tight">Timer</span>
+          </button>
+        </nav>
+      )}
     </>
   );
 };

@@ -21,12 +21,21 @@
     color: var(--text-primary);
     @apply antialiased min-h-screen font-sans select-none;
     overflow-x: hidden;
-    transition: background-color 0.2s ease;
   }
 
   #root {
     @apply min-h-screen flex flex-col w-full max-w-none m-0 p-0 text-left border-none;
   }
+}
+
+/* Smooth background transitions apply only during explicit user theme adjustments, not initial page load */
+html.theme-transitioning,
+html.theme-transitioning body,
+html.theme-transitioning #root,
+html.theme-transitioning .mono-surface,
+html.theme-transitioning .mono-card,
+html.theme-transitioning .mono-elevated {
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
 }
 
 /* Monochrome panel styles */
@@ -38,7 +47,6 @@
 .mono-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .mono-card:hover {

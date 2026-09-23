@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { 
   RotateCcw, Eye, EyeOff, CheckCircle2, AlertTriangle, 
   ArrowRight, Video, RotateCw
@@ -10,7 +11,7 @@ import { CUBE_COLORS, FACE_NAMES } from '../solver/cubeTypes';
 import { soundManager } from '../utils/soundEffects';
 
 export interface Cube3DViewerRef {
-  animateMove: (move: string, speedMultiplier?: number) => Promise<void>;
+  animateMove: (move: string, optionsOrSpeed?: number | { duration?: number }) => Promise<void>;
   resetCamera: () => void;
   focusFace: (face: Face) => void;
 }
@@ -31,6 +32,173 @@ interface Cube3DViewerProps {
 }
 
 const PLASTIC_COLOR = 0x111111;
+
+// Helper: 2D rounded rectangle shape for authentic speedcube vinyl stickers
+function createRoundedRectShape(width: number, height: number, radius: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  const x = -width / 2;
+  const y = -height / 2;
+  shape.moveTo(x + radius, y);
+  shape.lineTo(x + width - radius, y);
+  shape.quadraticCurveTo(x + width, y, x + width, y + radius);
+  shape.lineTo(x + width, y + height - radius);
+  shape.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  shape.lineTo(x + radius, y + height);
+  shape.quadraticCurveTo(x, y + height, x, y + height - radius);
+  shape.lineTo(x, y + radius);
+  shape.quadraticCurveTo(x, y, x + radius, y);
+  return shape;
+}
+
+// 6 Face Outward Unit Normals in 3D World Space
+export const FACE_NORMALS: Record<Face, THREE.Vector3> = {
+  U: new THREE.Vector3(0, 1, 0),
+  D: new THREE.Vector3(0, -1, 0),
+  F: new THREE.Vector3(0, 0, 1),
+  B: new THREE.Vector3(0, 0, -1),
+  L: new THREE.Vector3(-1, 0, 0),
+  R: new THREE.Vector3(1, 0, 0),
+};
+
+// Optimal 3/4 Vantage Points for Auto-Framing (Pillar 1)
+// Balanced vantage perspectives positioning the active face front-and-center (dot > 0.65)
+// while maintaining 3D depth by viewing 2 adjacent faces
+export const OPTIMAL_VANTAGE_POINTS: Record<Face, THREE.Vector3> = {
+  U: new THREE.Vector3(3.5, 5.0, 3.5),
+  D: new THREE.Vector3(3.5, -5.0, 3.5),
+  F: new THREE.Vector3(3.5, 3.2, 5.2),
+  B: new THREE.Vector3(3.5, 3.2, -5.2),
+  R: new THREE.Vector3(5.2, 3.2, 3.5),
+  L: new THREE.Vector3(-5.2, 3.2, 3.5),
+};
+
+// Tri-Pillar Dual-Pass Depth Configuration (Pillars 2 & 3)
+export const DUAL_PASS_CONFIG = {
+  pass1: {
+    depthFunc: THREE.GreaterDepth,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+    renderOrder: 998,
+  },
+  pass2: {
+    depthFunc: THREE.LessEqualDepth,
+    transparent: false,
+    opacity: 1.0,
+    depthWrite: false,
+    renderOrder: 999,
+  },
+};
+
+// Compute dot product between face normal and vector from origin to camera
+export function computeFaceCameraDot(face: Face, cameraPosition: THREE.Vector3): number {
+  const normal = FACE_NORMALS[face];
+  if (!normal) return 0;
+  const camDir = cameraPosition.clone().normalize();
+  return normal.dot(camDir);
+}
+
+// Determines if active face normal has low or negative dot product with camera vector (dot < threshold)
+export function shouldAutoFrameFace(
+  face: Face,
+  cameraPosition: THREE.Vector3,
+  threshold: number = 0.25
+): boolean {
+  const dot = computeFaceCameraDot(face, cameraPosition);
+  return dot < threshold;
+}
+
+// Rotation indicator arc parameters (Pillar 2)
+export function getRotationArcParameters(move: string): {
+  face: Face;
+  arcRadius: number;
+  startAngle: number;
+  sweepAngle: number;
+  isDouble: boolean;
+  isPrime: boolean;
+} {
+  const trimmed = move.trim();
+  const face = trimmed[0] as Face;
+  const isPrime = trimmed.includes("'");
+  const isDouble = trimmed.includes('2');
+  const arcRadius = 1.90; // Orbiting outside 1.50 cube boundary
+
+  let startAngle: number;
+  let sweepAngle: number;
+
+  if (isDouble) {
+    // 180° turn: clean 195° unidirectional arc without ambiguous opposing arrowheads
+    startAngle = Math.PI * 0.85;
+    sweepAngle = -Math.PI * (195 / 180); // Exact 195° unidirectional sweep
+  } else if (isPrime) {
+    startAngle = Math.PI * 0.25;
+    sweepAngle = Math.PI * 1.15;
+  } else {
+    startAngle = Math.PI * 0.75;
+    sweepAngle = -Math.PI * 1.15;
+  }
+
+  return { face, arcRadius, startAngle, sweepAngle, isDouble, isPrime };
+}
+
+// Create exterior glowing layer collar/halo geometry around active slice boundary
+export function createLayerCollarGeometry(face: Face): THREE.BufferGeometry {
+  const halfSize = 1.55; // Sits 0.05 units outside 1.50 cube surface
+  const r = 0.12; // Corner fillet radius
+  const pts2D: THREE.Vector2[] = [];
+  const segmentsPerCorner = 6;
+
+  // 4 Filleted Corners
+  const corners = [
+    { cx: halfSize - r, cy: halfSize - r, aStart: 0, aEnd: Math.PI / 2 },
+    { cx: -(halfSize - r), cy: halfSize - r, aStart: Math.PI / 2, aEnd: Math.PI },
+    { cx: -(halfSize - r), cy: -(halfSize - r), aStart: Math.PI, aEnd: (3 * Math.PI) / 2 },
+    { cx: halfSize - r, cy: -(halfSize - r), aStart: (3 * Math.PI) / 2, aEnd: 2 * Math.PI },
+  ];
+
+  for (const corner of corners) {
+    for (let i = 0; i <= segmentsPerCorner; i++) {
+      const a = corner.aStart + (corner.aEnd - corner.aStart) * (i / segmentsPerCorner);
+      pts2D.push(new THREE.Vector2(
+        corner.cx + r * Math.cos(a),
+        corner.cy + r * Math.sin(a)
+      ));
+    }
+  }
+
+  // Map 2D perimeter loop to 3D slice orientation
+  const pts3D: THREE.Vector3[] = [];
+  for (const p of pts2D) {
+    switch (face) {
+      case 'U':
+        pts3D.push(new THREE.Vector3(p.x, 1.0, p.y));
+        break;
+      case 'D':
+        pts3D.push(new THREE.Vector3(p.x, -1.0, p.y));
+        break;
+      case 'F':
+        pts3D.push(new THREE.Vector3(p.x, p.y, 1.0));
+        break;
+      case 'B':
+        pts3D.push(new THREE.Vector3(-p.x, p.y, -1.0));
+        break;
+      case 'R':
+        pts3D.push(new THREE.Vector3(1.0, p.y, -p.x));
+        break;
+      case 'L':
+        pts3D.push(new THREE.Vector3(-1.0, p.y, p.x));
+        break;
+    }
+  }
+
+  const curve = new THREE.CatmullRomCurve3(pts3D, true);
+  return new THREE.TubeGeometry(curve, 64, 0.045, 8, true);
+}
+
+// Easing function: smooth cubic ease-in-out (zero start & end jerk)
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
 
 export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
   cubeState,
@@ -55,17 +223,56 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const cubiesRef = useRef<THREE.Mesh[]>([]);
+  const stickerMeshesRef = useRef<THREE.Mesh[]>([]);
+  const stickersMapRef = useRef<Record<Face, (THREE.Mesh | null)[]>>({
+    U: new Array(9).fill(null),
+    D: new Array(9).fill(null),
+    F: new Array(9).fill(null),
+    B: new Array(9).fill(null),
+    L: new Array(9).fill(null),
+    R: new Array(9).fill(null)
+  });
+
   const cubeGroupRef = useRef<THREE.Group | null>(null);
   const arrowGroupRef = useRef<THREE.Group | null>(null);
-  const layerHighlightRef = useRef<THREE.LineSegments | null>(null);
+  const layerHighlightRef = useRef<THREE.Group | null>(null);
+
+  // Single RAF Loop and Active Animation tracking
+  const animFrameIdRef = useRef<number | null>(null);
+  const onAnimationEndRef = useRef(onAnimationEnd);
+  useEffect(() => {
+    onAnimationEndRef.current = onAnimationEnd;
+  }, [onAnimationEnd]);
+
+  const camAnimRef = useRef<{
+    startPos: THREE.Vector3;
+    targetPos: THREE.Vector3;
+    startTime: number;
+    duration: number;
+    resolve?: () => void;
+  } | null>(null);
+
+  const moveAnimRef = useRef<{
+    pivot: THREE.Group;
+    axis: THREE.Vector3;
+    targetAngle: number;
+    startTime: number;
+    duration: number;
+    targetCubies: THREE.Mesh[];
+    resolve: () => void;
+  } | null>(null);
 
   const pointerDownPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const cubeStateRef = useRef<CubeState>(cubeState);
+  useEffect(() => {
+    cubeStateRef.current = cubeState;
+  }, [cubeState]);
 
   const getColorHex = (c: keyof typeof CUBE_COLORS) => {
     return parseInt(CUBE_COLORS[c].hex.replace('#', '0x'), 16);
   };
 
-  // Reset all 27 cubies to exact identity alignment in world space
+  // Reset all 27 cubies to exact identity alignment in world grid
   const resetCubieTransforms = () => {
     cubiesRef.current.forEach((cubie) => {
       const u = cubie.userData;
@@ -75,6 +282,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
       cubie.rotation.set(0, 0, 0);
       cubie.quaternion.identity();
       cubie.updateMatrix();
+      cubie.updateMatrixWorld(true);
     });
   };
 
@@ -114,57 +322,22 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     [1, -1, 1], [1, -1, 0], [1, -1, -1]
   ];
 
-  const findCubie = (x: number, y: number, z: number) => {
-    return cubiesRef.current.find(mesh => {
-      const u = mesh.userData;
-      return u.gx === x && u.gy === y && u.gz === z;
-    });
-  };
-
+  // Synchronously reset cubies to identity grid and repaint vinyl sticker colors
+  // in the exact same render frame — eliminates the 1-frame snapback visual rollback glitch!
   const updateStickerMaterials = (state: CubeState) => {
     if (!cubiesRef.current.length) return;
 
     resetCubieTransforms();
 
-    uCoords.forEach((c, idx) => {
-      const cubie = findCubie(c[0], c[1], c[2]);
-      if (cubie && Array.isArray(cubie.material)) {
-        (cubie.material[2] as THREE.MeshStandardMaterial).color.setHex(getColorHex(state.U[idx]));
-      }
-    });
-
-    dCoords.forEach((c, idx) => {
-      const cubie = findCubie(c[0], c[1], c[2]);
-      if (cubie && Array.isArray(cubie.material)) {
-        (cubie.material[3] as THREE.MeshStandardMaterial).color.setHex(getColorHex(state.D[idx]));
-      }
-    });
-
-    fCoords.forEach((c, idx) => {
-      const cubie = findCubie(c[0], c[1], c[2]);
-      if (cubie && Array.isArray(cubie.material)) {
-        (cubie.material[4] as THREE.MeshStandardMaterial).color.setHex(getColorHex(state.F[idx]));
-      }
-    });
-
-    bCoords.forEach((c, idx) => {
-      const cubie = findCubie(c[0], c[1], c[2]);
-      if (cubie && Array.isArray(cubie.material)) {
-        (cubie.material[5] as THREE.MeshStandardMaterial).color.setHex(getColorHex(state.B[idx]));
-      }
-    });
-
-    lCoords.forEach((c, idx) => {
-      const cubie = findCubie(c[0], c[1], c[2]);
-      if (cubie && Array.isArray(cubie.material)) {
-        (cubie.material[1] as THREE.MeshStandardMaterial).color.setHex(getColorHex(state.L[idx]));
-      }
-    });
-
-    rCoords.forEach((c, idx) => {
-      const cubie = findCubie(c[0], c[1], c[2]);
-      if (cubie && Array.isArray(cubie.material)) {
-        (cubie.material[0] as THREE.MeshStandardMaterial).color.setHex(getColorHex(state.R[idx]));
+    const faces: Face[] = ['U', 'D', 'F', 'B', 'L', 'R'];
+    faces.forEach((face) => {
+      const faceColors = state[face];
+      if (!faceColors) return;
+      for (let idx = 0; idx < 9; idx++) {
+        const sticker = stickersMapRef.current[face]?.[idx];
+        if (sticker && sticker.material instanceof THREE.MeshStandardMaterial) {
+          sticker.material.color.setHex(getColorHex(faceColors[idx]));
+        }
       }
     });
   };
@@ -174,70 +347,78 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
 
     if (layerHighlightRef.current) {
       sceneRef.current.remove(layerHighlightRef.current);
-      layerHighlightRef.current.geometry.dispose();
-      (layerHighlightRef.current.material as THREE.Material).dispose();
+      layerHighlightRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry?.dispose();
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => m.dispose());
+          } else if (child.material) {
+            child.material.dispose();
+          }
+        }
+      });
       layerHighlightRef.current = null;
     }
 
     if (!move) return;
 
     const face = move[0] as Face;
-    let size = new THREE.Vector3(3.08, 3.08, 3.08);
-    let center = new THREE.Vector3(0, 0, 0);
+    if (!FACE_NORMALS[face]) return;
 
-    switch (face) {
-      case 'U':
-        size.set(3.08, 1.05, 3.08);
-        center.set(0, 1.0, 0);
-        break;
-      case 'D':
-        size.set(3.08, 1.05, 3.08);
-        center.set(0, -1.0, 0);
-        break;
-      case 'R':
-        size.set(1.05, 3.08, 3.08);
-        center.set(1.0, 0, 0);
-        break;
-      case 'L':
-        size.set(1.05, 3.08, 3.08);
-        center.set(-1.0, 0, 0);
-        break;
-      case 'F':
-        size.set(3.08, 3.08, 1.05);
-        center.set(0, 0, 1.0);
-        break;
-      case 'B':
-        size.set(3.08, 3.08, 1.05);
-        center.set(0, 0, -1.0);
-        break;
-    }
+    // Exterior Glowing Layer Collar / Halo (R5)
+    // Sits on active slice boundary outside 1.50 cube silhouette without penetrating interior core
+    const collarGroup = new THREE.Group();
+    const collarGeom = createLayerCollarGeometry(face);
 
-    const boxGeom = new THREE.BoxGeometry(size.x, size.y, size.z);
-    const edgesGeom = new THREE.EdgesGeometry(boxGeom);
-    const lineMat = new THREE.LineBasicMaterial({
+    // Pass 1: Occluded / Ghost Pass (subtle x-ray silhouette visible through solid cube)
+    const ghostMat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
-      linewidth: 2,
-      transparent: true,
-      opacity: 0.9,
-      depthTest: false
+      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass1.transparent,
+      opacity: DUAL_PASS_CONFIG.pass1.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
     });
+    const ghostMesh = new THREE.Mesh(collarGeom, ghostMat);
+    ghostMesh.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
+    collarGroup.add(ghostMesh);
 
-    const highlightBox = new THREE.LineSegments(edgesGeom, lineMat);
-    highlightBox.position.copy(center);
-    highlightBox.renderOrder = 998;
-    sceneRef.current.add(highlightBox);
-    layerHighlightRef.current = highlightBox;
+    // Pass 2: Foreground Pass (crisp, vibrant foreground when directly visible)
+    const foregroundMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass2.transparent,
+      opacity: DUAL_PASS_CONFIG.pass2.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
+    });
+    const foregroundMesh = new THREE.Mesh(collarGeom, foregroundMat);
+    foregroundMesh.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
+    collarGroup.add(foregroundMesh);
+
+    sceneRef.current.add(collarGroup);
+    layerHighlightRef.current = collarGroup;
   };
 
   const updateRotationArrow = (move: string | null) => {
     if (!arrowGroupRef.current) return;
+
+    // Properly dispose existing arrow geometries & materials
+    arrowGroupRef.current.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry?.dispose();
+        if (Array.isArray(child.material)) {
+          child.material.forEach((m) => m.dispose());
+        } else if (child.material) {
+          child.material.dispose();
+        }
+      }
+    });
     arrowGroupRef.current.clear();
+
     if (!move || !showArrows) return;
 
-    const trimmed = move.trim();
-    const face = trimmed[0] as Face;
-    const isPrime = trimmed.includes("'");
-    const isDouble = trimmed.includes('2');
+    // Pillar 2: Exterior Orbiting Indicator Arcs (r = 1.90 > 1.50 cube boundary)
+    const { face, arcRadius, startAngle, sweepAngle } = getRotationArcParameters(move);
+    if (!FACE_NORMALS[face]) return;
 
     const arrowGroup = new THREE.Group();
     const arrowColor = 0xffffff;
@@ -246,7 +427,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const center = new THREE.Vector3(0, 0, 0);
     const u = new THREE.Vector3(1, 0, 0);
     const v = new THREE.Vector3(0, 1, 0);
-    const offset = 1.72;
+    const offset = 1.62;
 
     switch (face) {
       case 'F':
@@ -281,32 +462,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         break;
     }
 
-    const arcRadius = 1.08;
     const tubeRadius = 0.08;
-
-    // Arc angular parameters in (u, v) plane:
-    // theta = pi/2 is 12 o'clock (+v)
-    // theta = 0 is 3 o'clock (+u)
-    // theta = -pi/2 is 6 o'clock (-v)
-    // theta = pi is 9 o'clock (-u)
-    let startAngle: number;
-    let sweepAngle: number;
-
-    if (isDouble) {
-      // 180° turn: 270° arc from 9 o'clock to 6 o'clock
-      startAngle = Math.PI;
-      sweepAngle = -Math.PI * 1.5;
-    } else if (isPrime) {
-      // Counter-Clockwise (Prime): theta increases (12 o'clock -> 9 o'clock -> 6 o'clock)
-      startAngle = Math.PI * 0.25;
-      sweepAngle = Math.PI * 1.15;
-    } else {
-      // Clockwise: theta decreases (12 o'clock -> 3 o'clock -> 6 o'clock)
-      startAngle = Math.PI * 0.75;
-      sweepAngle = -Math.PI * 1.15;
-    }
-
-    // Sample points along the parametric curve in 3D space
     const numPoints = 36;
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= numPoints; i++) {
@@ -320,93 +476,102 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
 
     const curve = new THREE.CatmullRomCurve3(points);
     const tubeGeom = new THREE.TubeGeometry(curve, 32, tubeRadius, 10, false);
-    const tubeMat = new THREE.MeshBasicMaterial({
-      color: arrowColor,
-      transparent: true,
-      opacity: 0.95,
-      depthTest: false
-    });
-    const tube = new THREE.Mesh(tubeGeom, tubeMat);
-    tube.renderOrder = 999;
-    arrowGroup.add(tube);
 
-    // Primary Arrowhead Cone at the end of the arc pointing along the exact tangent
+    // Pillar 3: Dual-Pass Depth-Aware Ghosting for Arc Tube
+    // Pass 1: Ghost pass through solid cubies
+    const tubeGhostMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass1.transparent,
+      opacity: DUAL_PASS_CONFIG.pass1.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
+    });
+    const tubeGhost = new THREE.Mesh(tubeGeom, tubeGhostMat);
+    tubeGhost.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
+    arrowGroup.add(tubeGhost);
+
+    // Pass 2: Foreground pass for crisp visible geometry
+    const tubeForegroundMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass2.transparent,
+      opacity: DUAL_PASS_CONFIG.pass2.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
+    });
+    const tubeForeground = new THREE.Mesh(tubeGeom, tubeForegroundMat);
+    tubeForeground.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
+    arrowGroup.add(tubeForeground);
+
+    // Directional Arrowhead Cone at arc endpoint pointing along tangent
     const coneGeom = new THREE.ConeGeometry(0.24, 0.44, 16);
-    const coneMat = new THREE.MeshBasicMaterial({
-      color: arrowColor,
-      transparent: true,
-      opacity: 0.95,
-      depthTest: false
-    });
-    const cone = new THREE.Mesh(coneGeom, coneMat);
-    cone.renderOrder = 999;
-
     const endPos = points[points.length - 1];
     const prevPos = points[points.length - 2];
     const tangent = new THREE.Vector3().subVectors(endPos, prevPos).normalize();
+    const coneQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
 
-    cone.position.copy(endPos);
-    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
-    arrowGroup.add(cone);
+    // Pillar 3: Dual-Pass Depth-Aware Ghosting for Arrowhead Cone
+    const coneGhostMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass1.transparent,
+      opacity: DUAL_PASS_CONFIG.pass1.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
+    });
+    const coneGhost = new THREE.Mesh(coneGeom, coneGhostMat);
+    coneGhost.position.copy(endPos);
+    coneGhost.quaternion.copy(coneQuat);
+    coneGhost.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
+    arrowGroup.add(coneGhost);
 
-    // If double turn (180°), add second arrowhead at start as well
-    if (isDouble) {
-      const cone2 = new THREE.Mesh(coneGeom, coneMat);
-      cone2.renderOrder = 999;
-      const startPos = points[0];
-      const nextPos = points[1];
-      const startTangent = new THREE.Vector3().subVectors(startPos, nextPos).normalize();
-      cone2.position.copy(startPos);
-      cone2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), startTangent);
-      arrowGroup.add(cone2);
-    }
+    const coneForegroundMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
+      transparent: DUAL_PASS_CONFIG.pass2.transparent,
+      opacity: DUAL_PASS_CONFIG.pass2.opacity,
+      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
+    });
+    const coneForeground = new THREE.Mesh(coneGeom, coneForegroundMat);
+    coneForeground.position.copy(endPos);
+    coneForeground.quaternion.copy(coneQuat);
+    coneForeground.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
+    arrowGroup.add(coneForeground);
 
     arrowGroupRef.current.add(arrowGroup);
   };
 
-  const smoothMoveCamera = (targetPos: THREE.Vector3, duration: number = 400) => {
-    if (!cameraRef.current || !controlsRef.current) return;
-    const startPos = cameraRef.current.position.clone();
-    const startTime = performance.now();
-
-    const animateCam = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const t = Math.min(elapsed / duration, 1);
-      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-      cameraRef.current?.position.lerpVectors(startPos, targetPos, ease);
-      controlsRef.current?.target.set(0, 0, 0);
-      controlsRef.current?.update();
-
-      if (t < 1) {
-        requestAnimationFrame(animateCam);
+  // Smooth camera navigation driven by the unified RAF loop
+  const smoothMoveCamera = (targetPos: THREE.Vector3, duration: number = 400): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!cameraRef.current || !controlsRef.current) {
+        resolve();
+        return;
       }
-    };
-    requestAnimationFrame(animateCam);
+      camAnimRef.current = {
+        startPos: cameraRef.current.position.clone(),
+        targetPos: targetPos.clone(),
+        startTime: performance.now(),
+        duration,
+        resolve
+      };
+    });
+  };
+
+  // Pillar 1: Smart Camera Auto-Framing
+  // Glides camera smoothly to optimal 3/4 vantage point when face normal dot camera vector < 0.25
+  const autoFrameFace = (face: Face, threshold: number = 0.25): boolean => {
+    if (!cameraRef.current) return false;
+    if (shouldAutoFrameFace(face, cameraRef.current.position, threshold)) {
+      const target = OPTIMAL_VANTAGE_POINTS[face];
+      if (target) {
+        smoothMoveCamera(target, 450);
+        return true;
+      }
+    }
+    return false;
   };
 
   const focusFace = (face: Face) => {
-    let target = new THREE.Vector3(4.5, 4.2, 5.5);
-    switch (face) {
-      case 'R':
-        target.set(5.5, 1.5, 0.5);
-        break;
-      case 'L':
-        target.set(-5.5, 1.5, 0.5);
-        break;
-      case 'F':
-        target.set(0.5, 1.5, 5.5);
-        break;
-      case 'B':
-        target.set(0.5, 1.5, -5.5);
-        break;
-      case 'U':
-        target.set(0.2, 5.8, 1.2);
-        break;
-      case 'D':
-        target.set(0.2, -5.8, 1.2);
-        break;
-    }
+    const target = OPTIMAL_VANTAGE_POINTS[face] || new THREE.Vector3(4.5, 4.2, 5.5);
     smoothMoveCamera(target, 450);
   };
 
@@ -416,6 +581,20 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         resolve();
         return;
       }
+
+      // Fast-forward any previous animation if still executing
+      if (moveAnimRef.current) {
+        const active = moveAnimRef.current;
+        active.pivot.setRotationFromAxisAngle(active.axis, active.targetAngle);
+        active.pivot.updateMatrixWorld();
+        active.targetCubies.forEach((c) => cubeGroupRef.current?.attach(c));
+        cubeGroupRef.current?.remove(active.pivot);
+        active.resolve();
+        moveAnimRef.current = null;
+      }
+
+      // Ensure cubie grid transforms are consistent before new move starts
+      resetCubieTransforms();
 
       setIsRotating(true);
       const face = move[0] as Face;
@@ -444,7 +623,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         pivot.attach(cubie);
       });
 
-      let axis = new THREE.Vector3(0, 1, 0);
+      const axis = new THREE.Vector3(0, 1, 0);
       let targetAngle = 0;
 
       switch (face) {
@@ -474,52 +653,40 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
           break;
       }
 
+      // 180° double turn rotates a continuous full 180° around the face normal
       if (isDouble) {
         targetAngle *= 2;
       }
 
-      const startTime = performance.now();
+      // Scale 180° double-turn duration to 1.35x for authentic, natural pacing
+      const actualDuration = isDouble ? Math.round(duration * 1.35) : duration;
 
-      const animate = (currentTime: number) => {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const ease = progress < 0.5 
-          ? 2 * progress * progress 
-          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-
-        const currentAngle = targetAngle * ease;
-        pivot.setRotationFromAxisAngle(axis, currentAngle);
-
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          // Finish rotation
-          pivot.setRotationFromAxisAngle(axis, targetAngle);
-          pivot.updateMatrixWorld();
-
-          // Detach cubies back to cubeGroup
-          targetCubies.forEach((cubie) => {
-            cubeGroupRef.current?.attach(cubie);
-          });
-          cubeGroupRef.current?.remove(pivot);
-
-          // Reset all 27 cubies to identity coordinate grid
-          resetCubieTransforms();
-
-          soundManager.playClick();
-          setIsRotating(false);
-          if (onAnimationEnd) onAnimationEnd();
-          resolve();
-        }
+      moveAnimRef.current = {
+        pivot,
+        axis,
+        targetAngle,
+        startTime: performance.now(),
+        duration: actualDuration,
+        targetCubies,
+        resolve
       };
-
-      requestAnimationFrame(animate);
     });
   };
 
   useImperativeHandle(ref, () => ({
-    animateMove: (move: string, speedMultiplier: number = 1.0) => {
-      const dur = Math.max(120, animationSpeed / speedMultiplier);
+    animateMove: (move: string, optionsOrSpeed?: number | { duration?: number }) => {
+      let dur = 350;
+      if (typeof optionsOrSpeed === 'number') {
+        dur = Math.max(120, animationSpeed / (optionsOrSpeed || 1.0));
+      } else if (optionsOrSpeed && typeof optionsOrSpeed.duration === 'number') {
+        dur = optionsOrSpeed.duration;
+      } else {
+        dur = animationSpeed;
+      }
+      const face = move[0] as Face;
+      if (FACE_NORMALS[face]) {
+        autoFrameFace(face);
+      }
       return performMoveAnimation(move, dur);
     },
     resetCamera: () => {
@@ -548,6 +715,12 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Studio Tone Mapping & Color Space (R1)
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -562,16 +735,47 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
     controlsRef.current = controls;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    // Studio 4-Point Lighting (Key 2.0, Fill 0.85, Rim 1.1, Ambient 0.55) (R1)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.9);
-    dirLight1.position.set(8, 12, 10);
-    scene.add(dirLight1);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    keyLight.position.set(6, 10, 7);
+    scene.add(keyLight);
 
-    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.7);
-    dirLight2.position.set(-8, -6, -8);
-    scene.add(dirLight2);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    fillLight.position.set(-6, -3, -5);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    rimLight.position.set(-5, 7, -7);
+    scene.add(rimLight);
+
+    // Subtle Grounding Contact Shadow Plane under the cube (R1)
+    const shadowGeo = new THREE.PlaneGeometry(5.4, 5.4);
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 256;
+    shadowCanvas.height = 256;
+    const sCtx = shadowCanvas.getContext('2d');
+    if (sCtx) {
+      const gradient = sCtx.createRadialGradient(128, 128, 20, 128, 128, 120);
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
+      gradient.addColorStop(0.45, 'rgba(0, 0, 0, 0.18)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      sCtx.fillStyle = gradient;
+      sCtx.fillRect(0, 0, 256, 256);
+    }
+    const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      depthWrite: false,
+      opacity: 0.8
+    });
+    const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.y = -2.25;
+    scene.add(shadowPlane);
 
     const cubeGroup = new THREE.Group();
     cubeGroupRef.current = cubeGroup;
@@ -581,7 +785,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     arrowGroupRef.current = arrowGroup;
     scene.add(arrowGroup);
 
-    // Floating Face Markers
+    // Floating Face Markers (U, D, F, B, R, L)
     const faceLabelsGroup = new THREE.Group();
     const createFaceSprite = (text: string, x: number, y: number, z: number) => {
       const canvas = document.createElement('canvas');
@@ -604,7 +808,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         ctx.fillText(text, 64, 64);
       }
       const texture = new THREE.CanvasTexture(canvas);
-      const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
       const sprite = new THREE.Sprite(spriteMat);
       sprite.position.set(x, y, z);
       sprite.scale.set(0.7, 0.7, 0.7);
@@ -620,61 +824,282 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     faceLabelsGroup.add(createFaceSprite('L', -2.15, 0, 0));
     scene.add(faceLabelsGroup);
 
-    // 27 Cubies
+    // Solid Central Core Mesh (R1) at (0, 0, 0)
+    // Eliminates all hollow gaps or canvas background visible through seams
+    const coreGeom = new RoundedBoxGeometry(1.95, 1.95, 1.95, 3, 0.2);
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: PLASTIC_COLOR,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+    const coreMesh = new THREE.Mesh(coreGeom, coreMat);
+    coreMesh.position.set(0, 0, 0);
+    cubeGroup.add(coreMesh);
+
+    // 27 Cubies with Solid Beveled Geometry (0.965, 3, 0.045) leaving narrow 0.035 seams (R1)
+    const cubieGeom = new RoundedBoxGeometry(0.965, 0.965, 0.965, 3, 0.045);
+    const cubieMat = new THREE.MeshStandardMaterial({
+      color: PLASTIC_COLOR,
+      roughness: 0.55,
+      metalness: 0.1
+    });
+
+    // 54 Authentic Vinyl Sticker Meshes (0.85 x 0.85, radius 0.06) with crisp 0.0575 black borders (R1)
+    const stickerShape = createRoundedRectShape(0.85, 0.85, 0.06);
+    const stickerGeom = new THREE.ShapeGeometry(stickerShape, 12);
+    const halfDist = 0.4855; // Sits exactly on outer face with crisp 0.0575 black border
+
     const cubies: THREE.Mesh[] = [];
-    const cubieSize = 0.94;
-    const geom = new THREE.BoxGeometry(cubieSize, cubieSize, cubieSize);
+    const allStickers: THREE.Mesh[] = [];
+    const stickersMap: Record<Face, (THREE.Mesh | null)[]> = {
+      U: new Array(9).fill(null),
+      D: new Array(9).fill(null),
+      F: new Array(9).fill(null),
+      B: new Array(9).fill(null),
+      L: new Array(9).fill(null),
+      R: new Array(9).fill(null)
+    };
 
     for (let x = -1; x <= 1; x++) {
       for (let y = -1; y <= 1; y++) {
         for (let z = -1; z <= 1; z++) {
-          const materials = [
-            new THREE.MeshStandardMaterial({ color: PLASTIC_COLOR, roughness: 0.3, metalness: 0.1 }),
-            new THREE.MeshStandardMaterial({ color: PLASTIC_COLOR, roughness: 0.3, metalness: 0.1 }),
-            new THREE.MeshStandardMaterial({ color: PLASTIC_COLOR, roughness: 0.3, metalness: 0.1 }),
-            new THREE.MeshStandardMaterial({ color: PLASTIC_COLOR, roughness: 0.3, metalness: 0.1 }),
-            new THREE.MeshStandardMaterial({ color: PLASTIC_COLOR, roughness: 0.3, metalness: 0.1 }),
-            new THREE.MeshStandardMaterial({ color: PLASTIC_COLOR, roughness: 0.3, metalness: 0.1 }),
-          ];
+          const cubie = new THREE.Mesh(cubieGeom, cubieMat);
+          cubie.position.set(x, y, z);
+          cubie.userData = { gx: x, gy: y, gz: z };
+          cubeGroup.add(cubie);
+          cubies.push(cubie);
 
-          const mesh = new THREE.Mesh(geom, materials);
-          mesh.position.set(x, y, z);
-          mesh.userData = { gx: x, gy: y, gz: z };
-          cubeGroup.add(mesh);
-          cubies.push(mesh);
+          // Vinyl Stickers on outer faces
+          // Top (U, +Y)
+          if (y === 1) {
+            const idx = uCoords.findIndex(c => c[0] === x && c[1] === y && c[2] === z);
+            const stickerMat = new THREE.MeshStandardMaterial({
+              color: 0xffffff,
+              roughness: 0.18,
+              metalness: 0.0
+            });
+            const sticker = new THREE.Mesh(stickerGeom, stickerMat);
+            sticker.position.set(0, halfDist, 0);
+            sticker.rotation.set(-Math.PI / 2, 0, 0);
+            sticker.userData = { face: 'U', index: idx, gx: x, gy: y, gz: z };
+            cubie.add(sticker);
+            stickersMap.U[idx] = sticker;
+            allStickers.push(sticker);
+          }
+          // Bottom (D, -Y)
+          if (y === -1) {
+            const idx = dCoords.findIndex(c => c[0] === x && c[1] === y && c[2] === z);
+            const stickerMat = new THREE.MeshStandardMaterial({
+              color: 0xffd500,
+              roughness: 0.18,
+              metalness: 0.0
+            });
+            const sticker = new THREE.Mesh(stickerGeom, stickerMat);
+            sticker.position.set(0, -halfDist, 0);
+            sticker.rotation.set(Math.PI / 2, 0, 0);
+            sticker.userData = { face: 'D', index: idx, gx: x, gy: y, gz: z };
+            cubie.add(sticker);
+            stickersMap.D[idx] = sticker;
+            allStickers.push(sticker);
+          }
+          // Front (F, +Z)
+          if (z === 1) {
+            const idx = fCoords.findIndex(c => c[0] === x && c[1] === y && c[2] === z);
+            const stickerMat = new THREE.MeshStandardMaterial({
+              color: 0x009b48,
+              roughness: 0.18,
+              metalness: 0.0
+            });
+            const sticker = new THREE.Mesh(stickerGeom, stickerMat);
+            sticker.position.set(0, 0, halfDist);
+            sticker.rotation.set(0, 0, 0);
+            sticker.userData = { face: 'F', index: idx, gx: x, gy: y, gz: z };
+            cubie.add(sticker);
+            stickersMap.F[idx] = sticker;
+            allStickers.push(sticker);
+          }
+          // Back (B, -Z)
+          if (z === -1) {
+            const idx = bCoords.findIndex(c => c[0] === x && c[1] === y && c[2] === z);
+            const stickerMat = new THREE.MeshStandardMaterial({
+              color: 0x0046ad,
+              roughness: 0.18,
+              metalness: 0.0
+            });
+            const sticker = new THREE.Mesh(stickerGeom, stickerMat);
+            sticker.position.set(0, 0, -halfDist);
+            sticker.rotation.set(0, Math.PI, 0);
+            sticker.userData = { face: 'B', index: idx, gx: x, gy: y, gz: z };
+            cubie.add(sticker);
+            stickersMap.B[idx] = sticker;
+            allStickers.push(sticker);
+          }
+          // Left (L, -X)
+          if (x === -1) {
+            const idx = lCoords.findIndex(c => c[0] === x && c[1] === y && c[2] === z);
+            const stickerMat = new THREE.MeshStandardMaterial({
+              color: 0xff5800,
+              roughness: 0.18,
+              metalness: 0.0
+            });
+            const sticker = new THREE.Mesh(stickerGeom, stickerMat);
+            sticker.position.set(-halfDist, 0, 0);
+            sticker.rotation.set(0, -Math.PI / 2, 0);
+            sticker.userData = { face: 'L', index: idx, gx: x, gy: y, gz: z };
+            cubie.add(sticker);
+            stickersMap.L[idx] = sticker;
+            allStickers.push(sticker);
+          }
+          // Right (R, +X)
+          if (x === 1) {
+            const idx = rCoords.findIndex(c => c[0] === x && c[1] === y && c[2] === z);
+            const stickerMat = new THREE.MeshStandardMaterial({
+              color: 0xb71234,
+              roughness: 0.18,
+              metalness: 0.0
+            });
+            const sticker = new THREE.Mesh(stickerGeom, stickerMat);
+            sticker.position.set(halfDist, 0, 0);
+            sticker.rotation.set(0, Math.PI / 2, 0);
+            sticker.userData = { face: 'R', index: idx, gx: x, gy: y, gz: z };
+            cubie.add(sticker);
+            stickersMap.R[idx] = sticker;
+            allStickers.push(sticker);
+          }
         }
       }
     }
-    cubiesRef.current = cubies;
 
-    // Render loop
-    let animationFrameId: number;
-    const render = () => {
-      animationFrameId = requestAnimationFrame(render);
-      controls.update();
-      renderer.render(scene, camera);
+    cubiesRef.current = cubies;
+    stickerMeshesRef.current = allStickers;
+    stickersMapRef.current = stickersMap;
+
+    // Paint initial state
+    updateStickerMaterials(cubeStateRef.current);
+
+    // Consolidated Single RAF Render Loop (R1 & R6)
+    // Runs OrbitControls damping, camera gliding, and cubic layer rotation without conflicting loops
+    const render = (time: number) => {
+      animFrameIdRef.current = requestAnimationFrame(render);
+
+      // 1. Camera animation
+      if (camAnimRef.current && cameraRef.current && controlsRef.current) {
+        const anim = camAnimRef.current;
+        const elapsed = time - anim.startTime;
+        const t = Math.min(elapsed / anim.duration, 1);
+        const ease = easeInOutCubic(t);
+        cameraRef.current.position.lerpVectors(anim.startPos, anim.targetPos, ease);
+        controlsRef.current.target.set(0, 0, 0);
+
+        if (t >= 1) {
+          cameraRef.current.position.copy(anim.targetPos);
+          if (anim.resolve) anim.resolve();
+          camAnimRef.current = null;
+        }
+      }
+
+      // 2. Controls update (single point of damping computation)
+      controlsRef.current?.update();
+
+      // 3. Move rotation animation
+      if (moveAnimRef.current) {
+        const anim = moveAnimRef.current;
+        const elapsed = time - anim.startTime;
+        const progress = Math.min(elapsed / anim.duration, 1);
+        const ease = easeInOutCubic(progress);
+        const currentAngle = anim.targetAngle * ease;
+        anim.pivot.setRotationFromAxisAngle(anim.axis, currentAngle);
+
+        if (progress >= 1) {
+          anim.pivot.setRotationFromAxisAngle(anim.axis, anim.targetAngle);
+          anim.pivot.updateMatrixWorld();
+
+          // Detach cubies back to cubeGroup in their rotated orientations
+          anim.targetCubies.forEach((cubie) => {
+            cubeGroupRef.current?.attach(cubie);
+          });
+          cubeGroupRef.current?.remove(anim.pivot);
+
+          // NOTE: DO NOT call resetCubieTransforms() here!
+          // Cubies stay in their rotated positions until updateStickerMaterials synchronously resets
+          // coordinates and applies new sticker colors in the same exact frame.
+          soundManager.playClick();
+          setIsRotating(false);
+          if (onAnimationEndRef.current) onAnimationEndRef.current();
+
+          const resolve = anim.resolve;
+          moveAnimRef.current = null;
+          resolve();
+        }
+      }
+
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
     };
-    render();
+
+    animFrameIdRef.current = requestAnimationFrame(render);
 
     const handleResize = () => {
-      if (!container || !renderer || !camera) return;
+      if (!container || !rendererRef.current || !cameraRef.current) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+      cameraRef.current.aspect = w / h;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(w, h);
     };
     window.addEventListener('resize', handleResize);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+      }
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
-      geom.dispose();
+      cubieGeom.dispose();
+      cubieMat.dispose();
+      coreGeom.dispose();
+      coreMat.dispose();
+      stickerGeom.dispose();
+      shadowGeo.dispose();
+      shadowMat.dispose();
+      shadowTexture.dispose();
+      allStickers.forEach((s) => {
+        if (s.material instanceof THREE.Material) {
+          s.material.dispose();
+        }
+      });
+      if (layerHighlightRef.current && sceneRef.current) {
+        sceneRef.current.remove(layerHighlightRef.current);
+        layerHighlightRef.current.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry?.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => m.dispose());
+            } else if (child.material) {
+              child.material.dispose();
+            }
+          }
+        });
+        layerHighlightRef.current = null;
+      }
+      if (arrowGroupRef.current) {
+        arrowGroupRef.current.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry?.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => m.dispose());
+            } else if (child.material) {
+              child.material.dispose();
+            }
+          }
+        });
+        arrowGroupRef.current.clear();
+      }
     };
   }, []);
 
-  // Raycasting for interactive 3D sticker clicks
+  // Raycasting for interactive 3D sticker clicks in CubeNetEditor painting mode
   const handlePointerDown = (e: React.PointerEvent) => {
     pointerDownPos.current = { x: e.clientX, y: e.clientY };
   };
@@ -684,7 +1109,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
 
     const dx = Math.abs(e.clientX - pointerDownPos.current.x);
     const dy = Math.abs(e.clientY - pointerDownPos.current.y);
-    if (dx > 6 || dy > 6) return; // User dragged to orbit camera, not a tap
+    if (dx > 6 || dy > 6) return; // User dragged to orbit camera, not a click
 
     const rect = containerRef.current.getBoundingClientRect();
     const mouse = new THREE.Vector2(
@@ -694,16 +1119,30 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
 
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, cameraRef.current);
-    const intersects = raycaster.intersectObjects(cubiesRef.current, false);
 
-    if (intersects.length > 0) {
-      const hit = intersects[0];
+    // 1. Direct hit on 54 separate sticker child meshes
+    const stickerIntersects = raycaster.intersectObjects(stickerMeshesRef.current, false);
+    if (stickerIntersects.length > 0) {
+      const hit = stickerIntersects[0].object;
+      const { face, index } = hit.userData as { face: Face; index: number };
+      if (face && typeof index === 'number') {
+        if (index !== 4) { // Don't allow changing fixed center sticker
+          soundManager.playClick();
+          onStickerClick(face, index);
+        }
+        return;
+      }
+    }
+
+    // 2. Fallback hit on cubie bevel plastic border
+    const cubieIntersects = raycaster.intersectObjects(cubiesRef.current, false);
+    if (cubieIntersects.length > 0) {
+      const hit = cubieIntersects[0];
       const normal = hit.face?.normal;
       const cubie = hit.object as THREE.Mesh;
       const u = cubie.userData;
       if (!normal || !u) return;
 
-      // Transform normal to world space
       const worldNormal = normal.clone().applyQuaternion(cubie.quaternion).round();
       let face: Face | null = null;
       let coordList: number[][] | null = null;
@@ -719,7 +1158,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         const stickerIdx = coordList.findIndex(
           c => c[0] === u.gx && c[1] === u.gy && c[2] === u.gz
         );
-        if (stickerIdx !== -1 && stickerIdx !== 4) { // Don't allow changing fixed center
+        if (stickerIdx !== -1 && stickerIdx !== 4) {
           soundManager.playClick();
           onStickerClick(face, stickerIdx);
         }
@@ -732,6 +1171,12 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
   }, [cubeState]);
 
   useEffect(() => {
+    if (activeMove) {
+      const face = activeMove[0] as Face;
+      if (FACE_NORMALS[face]) {
+        autoFrameFace(face);
+      }
+    }
     updateRotationArrow(activeMove);
     updateLayerHighlight(activeMove);
   }, [activeMove, showArrows]);
@@ -788,9 +1233,9 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         )}
       </div>
 
-      {/* HIGH-VISIBILITY MOVE COMPASS BANNER (Overhaul: Always Prominent, Clear & Never Hidden) */}
+      {/* HIGH-VISIBILITY MOVE COMPASS BANNER (Hidden on mobile to ensure zero 3D occlusion, visible on lg:) */}
       {totalSteps > 0 && (
-        <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-4 sm:right-4 z-20 pointer-events-auto">
+        <div className="hidden lg:block absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-4 sm:right-4 z-20 pointer-events-auto">
           {isHudCollapsed ? (
             <div className="flex justify-center">
               <button
