@@ -14,6 +14,7 @@ export interface Cube3DViewerRef {
   animateMove: (move: string, optionsOrSpeed?: number | { duration?: number }) => Promise<void>;
   resetCamera: () => void;
   focusFace: (face: Face) => void;
+  autoFrameFace?: (face: Face) => boolean;
 }
 
 interface Cube3DViewerProps {
@@ -64,12 +65,12 @@ export const FACE_NORMALS: Record<Face, THREE.Vector3> = {
 // Balanced vantage perspectives positioning the active face front-and-center (dot > 0.65)
 // while maintaining 3D depth by viewing 2 adjacent faces
 export const OPTIMAL_VANTAGE_POINTS: Record<Face, THREE.Vector3> = {
-  U: new THREE.Vector3(3.5, 5.0, 3.5),
-  D: new THREE.Vector3(3.5, -5.0, 3.5),
-  F: new THREE.Vector3(3.5, 3.2, 5.2),
-  B: new THREE.Vector3(3.5, 3.2, -5.2),
-  R: new THREE.Vector3(5.2, 3.2, 3.5),
-  L: new THREE.Vector3(-5.2, 3.2, 3.5),
+  U: new THREE.Vector3(3.5, 6.8, 3.5),
+  D: new THREE.Vector3(3.5, -6.8, 3.5),
+  F: new THREE.Vector3(3.5, 3.5, 6.8),
+  B: new THREE.Vector3(3.5, 3.5, -6.8),
+  R: new THREE.Vector3(6.8, 3.5, 3.5),
+  L: new THREE.Vector3(-6.8, 3.5, 3.5),
 };
 
 // Tri-Pillar Dual-Pass Depth Configuration (Pillars 2 & 3)
@@ -348,7 +349,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     if (layerHighlightRef.current) {
       sceneRef.current.remove(layerHighlightRef.current);
       layerHighlightRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
+        if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) {
           child.geometry?.dispose();
           if (Array.isArray(child.material)) {
             child.material.forEach((m) => m.dispose());
@@ -365,43 +366,59 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const face = move[0] as Face;
     if (!FACE_NORMALS[face]) return;
 
-    // Exterior Glowing Layer Collar / Halo (R5)
-    // Sits on active slice boundary outside 1.50 cube silhouette without penetrating interior core
-    const collarGroup = new THREE.Group();
-    const collarGeom = createLayerCollarGeometry(face);
+    // Clean, crisp layer boundary outline that highlights active layer without obscuring cube faces
+    const size = new THREE.Vector3(3.08, 3.08, 3.08);
+    const center = new THREE.Vector3(0, 0, 0);
 
-    // Pass 1: Occluded / Ghost Pass (subtle x-ray silhouette visible through solid cube)
-    const ghostMat = new THREE.MeshBasicMaterial({
+    switch (face) {
+      case 'U':
+        size.set(3.08, 1.05, 3.08);
+        center.set(0, 1.0, 0);
+        break;
+      case 'D':
+        size.set(3.08, 1.05, 3.08);
+        center.set(0, -1.0, 0);
+        break;
+      case 'R':
+        size.set(1.05, 3.08, 3.08);
+        center.set(1.0, 0, 0);
+        break;
+      case 'L':
+        size.set(1.05, 3.08, 3.08);
+        center.set(-1.0, 0, 0);
+        break;
+      case 'F':
+        size.set(3.08, 3.08, 1.05);
+        center.set(0, 0, 1.0);
+        break;
+      case 'B':
+        size.set(3.08, 3.08, 1.05);
+        center.set(0, 0, -1.0);
+        break;
+    }
+
+    const boxGeom = new THREE.BoxGeometry(size.x, size.y, size.z);
+    const edgesGeom = new THREE.EdgesGeometry(boxGeom);
+    boxGeom.dispose();
+    const lineMat = new THREE.LineBasicMaterial({
       color: 0xffffff,
-      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
-      transparent: DUAL_PASS_CONFIG.pass1.transparent,
-      opacity: DUAL_PASS_CONFIG.pass1.opacity,
-      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false
     });
-    const ghostMesh = new THREE.Mesh(collarGeom, ghostMat);
-    ghostMesh.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
-    collarGroup.add(ghostMesh);
+    const highlightBox = new THREE.LineSegments(edgesGeom, lineMat);
+    highlightBox.position.copy(center);
+    highlightBox.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
 
-    // Pass 2: Foreground Pass (crisp, vibrant foreground when directly visible)
-    const foregroundMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
-      transparent: DUAL_PASS_CONFIG.pass2.transparent,
-      opacity: DUAL_PASS_CONFIG.pass2.opacity,
-      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
-    });
-    const foregroundMesh = new THREE.Mesh(collarGeom, foregroundMat);
-    foregroundMesh.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
-    collarGroup.add(foregroundMesh);
-
-    sceneRef.current.add(collarGroup);
-    layerHighlightRef.current = collarGroup;
+    const group = new THREE.Group();
+    group.add(highlightBox);
+    sceneRef.current.add(group);
+    layerHighlightRef.current = group;
   };
 
   const updateRotationArrow = (move: string | null) => {
     if (!arrowGroupRef.current) return;
 
-    // Properly dispose existing arrow geometries & materials
     arrowGroupRef.current.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry?.dispose();
@@ -416,10 +433,11 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
 
     if (!move || !showArrows) return;
 
-    // Pillar 2: Exterior Orbiting Indicator Arcs (r = 1.90 > 1.50 cube boundary)
-    const { face, arcRadius, startAngle, sweepAngle } = getRotationArcParameters(move);
+    const trimmed = move.trim();
+    const face = trimmed[0] as Face;
     if (!FACE_NORMALS[face]) return;
 
+    const { startAngle, sweepAngle, isDouble } = getRotationArcParameters(move);
     const arrowGroup = new THREE.Group();
     const arrowColor = 0xffffff;
 
@@ -427,7 +445,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const center = new THREE.Vector3(0, 0, 0);
     const u = new THREE.Vector3(1, 0, 0);
     const v = new THREE.Vector3(0, 1, 0);
-    const offset = 1.62;
+    const offset = 1.58;
 
     switch (face) {
       case 'F':
@@ -462,7 +480,9 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         break;
     }
 
-    const tubeRadius = 0.08;
+    // Keep arc radius cleanly centered on the face (1.28) so it never cuts across adjacent faces
+    const arcRadius = 1.28;
+    const tubeRadius = 0.055;
     const numPoints = 36;
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= numPoints; i++) {
@@ -477,64 +497,46 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const curve = new THREE.CatmullRomCurve3(points);
     const tubeGeom = new THREE.TubeGeometry(curve, 32, tubeRadius, 10, false);
 
-    // Pillar 3: Dual-Pass Depth-Aware Ghosting for Arc Tube
-    // Pass 1: Ghost pass through solid cubies
-    const tubeGhostMat = new THREE.MeshBasicMaterial({
+    // Single high-contrast, perfectly stable arrow mesh
+    const tubeMat = new THREE.MeshBasicMaterial({
       color: arrowColor,
-      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
-      transparent: DUAL_PASS_CONFIG.pass1.transparent,
-      opacity: DUAL_PASS_CONFIG.pass1.opacity,
-      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
+      transparent: true,
+      opacity: 0.95,
+      depthWrite: false
     });
-    const tubeGhost = new THREE.Mesh(tubeGeom, tubeGhostMat);
-    tubeGhost.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
-    arrowGroup.add(tubeGhost);
-
-    // Pass 2: Foreground pass for crisp visible geometry
-    const tubeForegroundMat = new THREE.MeshBasicMaterial({
-      color: arrowColor,
-      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
-      transparent: DUAL_PASS_CONFIG.pass2.transparent,
-      opacity: DUAL_PASS_CONFIG.pass2.opacity,
-      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
-    });
-    const tubeForeground = new THREE.Mesh(tubeGeom, tubeForegroundMat);
-    tubeForeground.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
-    arrowGroup.add(tubeForeground);
+    const tube = new THREE.Mesh(tubeGeom, tubeMat);
+    tube.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
+    arrowGroup.add(tube);
 
     // Directional Arrowhead Cone at arc endpoint pointing along tangent
-    const coneGeom = new THREE.ConeGeometry(0.24, 0.44, 16);
+    const coneGeom = new THREE.ConeGeometry(0.18, 0.36, 16);
     const endPos = points[points.length - 1];
     const prevPos = points[points.length - 2];
     const tangent = new THREE.Vector3().subVectors(endPos, prevPos).normalize();
     const coneQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
 
-    // Pillar 3: Dual-Pass Depth-Aware Ghosting for Arrowhead Cone
-    const coneGhostMat = new THREE.MeshBasicMaterial({
+    const coneMat = new THREE.MeshBasicMaterial({
       color: arrowColor,
-      depthFunc: DUAL_PASS_CONFIG.pass1.depthFunc,
-      transparent: DUAL_PASS_CONFIG.pass1.transparent,
-      opacity: DUAL_PASS_CONFIG.pass1.opacity,
-      depthWrite: DUAL_PASS_CONFIG.pass1.depthWrite
+      transparent: true,
+      opacity: 0.95,
+      depthWrite: false
     });
-    const coneGhost = new THREE.Mesh(coneGeom, coneGhostMat);
-    coneGhost.position.copy(endPos);
-    coneGhost.quaternion.copy(coneQuat);
-    coneGhost.renderOrder = DUAL_PASS_CONFIG.pass1.renderOrder;
-    arrowGroup.add(coneGhost);
+    const cone = new THREE.Mesh(coneGeom, coneMat);
+    cone.position.copy(endPos);
+    cone.quaternion.copy(coneQuat);
+    cone.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
+    arrowGroup.add(cone);
 
-    const coneForegroundMat = new THREE.MeshBasicMaterial({
-      color: arrowColor,
-      depthFunc: DUAL_PASS_CONFIG.pass2.depthFunc,
-      transparent: DUAL_PASS_CONFIG.pass2.transparent,
-      opacity: DUAL_PASS_CONFIG.pass2.opacity,
-      depthWrite: DUAL_PASS_CONFIG.pass2.depthWrite
-    });
-    const coneForeground = new THREE.Mesh(coneGeom, coneForegroundMat);
-    coneForeground.position.copy(endPos);
-    coneForeground.quaternion.copy(coneQuat);
-    coneForeground.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
-    arrowGroup.add(coneForeground);
+    if (isDouble) {
+      const startPos = points[0];
+      const nextPos = points[1];
+      const startTangent = new THREE.Vector3().subVectors(startPos, nextPos).normalize();
+      const cone2 = new THREE.Mesh(coneGeom, coneMat);
+      cone2.position.copy(startPos);
+      cone2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), startTangent);
+      cone2.renderOrder = DUAL_PASS_CONFIG.pass2.renderOrder;
+      arrowGroup.add(cone2);
+    }
 
     arrowGroupRef.current.add(arrowGroup);
   };
@@ -545,6 +547,9 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
       if (!cameraRef.current || !controlsRef.current) {
         resolve();
         return;
+      }
+      if (controlsRef.current) {
+        controlsRef.current.enabled = false;
       }
       camAnimRef.current = {
         startPos: cameraRef.current.position.clone(),
@@ -683,17 +688,16 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
       } else {
         dur = animationSpeed;
       }
-      const face = move[0] as Face;
-      if (FACE_NORMALS[face]) {
-        autoFrameFace(face);
-      }
       return performMoveAnimation(move, dur);
     },
     resetCamera: () => {
-      smoothMoveCamera(new THREE.Vector3(4.5, 4.2, 5.5));
+      smoothMoveCamera(new THREE.Vector3(5.4, 4.6, 6.4));
     },
     focusFace: (face: Face) => {
       focusFace(face);
+    },
+    autoFrameFace: (face: Face) => {
+      return autoFrameFace(face);
     }
   }));
 
@@ -708,13 +712,15 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(4.5, 4.2, 5.5);
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.set(5.4, 4.6, 6.4);
+    camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
 
     // Studio Tone Mapping & Color Space (R1)
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -728,8 +734,8 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 3.5;
-    controls.maxDistance = 12;
+    controls.minDistance = 4.0;
+    controls.maxDistance = 14;
     controls.rotateSpeed = 0.8;
     controls.enablePan = false;
     controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
@@ -785,44 +791,6 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     arrowGroupRef.current = arrowGroup;
     scene.add(arrowGroup);
 
-    // Floating Face Markers (U, D, F, B, R, L)
-    const faceLabelsGroup = new THREE.Group();
-    const createFaceSprite = (text: string, x: number, y: number, z: number) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 128;
-      canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#000000';
-        ctx.beginPath();
-        ctx.arc(64, 64, 48, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 6;
-        ctx.stroke();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 54px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, 64, 64);
-      }
-      const texture = new THREE.CanvasTexture(canvas);
-      const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
-      const sprite = new THREE.Sprite(spriteMat);
-      sprite.position.set(x, y, z);
-      sprite.scale.set(0.7, 0.7, 0.7);
-      sprite.renderOrder = 997;
-      return sprite;
-    };
-
-    faceLabelsGroup.add(createFaceSprite('U', 0, 2.15, 0));
-    faceLabelsGroup.add(createFaceSprite('D', 0, -2.15, 0));
-    faceLabelsGroup.add(createFaceSprite('F', 0, 0, 2.15));
-    faceLabelsGroup.add(createFaceSprite('B', 0, 0, -2.15));
-    faceLabelsGroup.add(createFaceSprite('R', 2.15, 0, 0));
-    faceLabelsGroup.add(createFaceSprite('L', -2.15, 0, 0));
-    scene.add(faceLabelsGroup);
 
     // Solid Central Core Mesh (R1) at (0, 0, 0)
     // Eliminates all hollow gaps or canvas background visible through seams
@@ -989,17 +957,21 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
         const t = Math.min(elapsed / anim.duration, 1);
         const ease = easeInOutCubic(t);
         cameraRef.current.position.lerpVectors(anim.startPos, anim.targetPos, ease);
-        controlsRef.current.target.set(0, 0, 0);
+        cameraRef.current.lookAt(0, 0, 0);
 
         if (t >= 1) {
           cameraRef.current.position.copy(anim.targetPos);
+          cameraRef.current.lookAt(0, 0, 0);
+          controlsRef.current.target.set(0, 0, 0);
+          controlsRef.current.enabled = true;
+          controlsRef.current.update();
           if (anim.resolve) anim.resolve();
           camAnimRef.current = null;
         }
+      } else {
+        // 2. Controls update only when NOT actively animating camera
+        controlsRef.current?.update();
       }
-
-      // 2. Controls update (single point of damping computation)
-      controlsRef.current?.update();
 
       // 3. Move rotation animation
       if (moveAnimRef.current) {
@@ -1171,12 +1143,6 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
   }, [cubeState]);
 
   useEffect(() => {
-    if (activeMove) {
-      const face = activeMove[0] as Face;
-      if (FACE_NORMALS[face]) {
-        autoFrameFace(face);
-      }
-    }
     updateRotationArrow(activeMove);
     updateLayerHighlight(activeMove);
   }, [activeMove, showArrows]);
@@ -1204,7 +1170,7 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
           <span className="xs:hidden">W Top &bull; G Front</span>
         </div>
         <button
-          onClick={() => smoothMoveCamera(new THREE.Vector3(4.5, 4.2, 5.5))}
+          onClick={() => smoothMoveCamera(new THREE.Vector3(5.4, 4.6, 6.4))}
           className="p-1.5 rounded-xl bg-black/85 hover:bg-neutral-800 backdrop-blur-md border border-white/20 text-white transition-colors"
           title="Reset Camera View"
         >
