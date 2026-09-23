@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { 
   Camera, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft, 
-  AlertTriangle, RotateCw, Upload, Play
+  AlertTriangle, RotateCw, RotateCcw, Upload, Play
 } from 'lucide-react';
 import type { CubeColor, CubeState, Face, FaceState } from '../solver/cubeTypes';
 import { CUBE_COLORS, FACE_NAMES } from '../solver/cubeTypes';
 import { classifyColor, sampleRegionAverageRGB } from '../utils/colorDetector';
 import { validateCubeParity } from '../solver/parityValidator';
+import { ScanGuide3D } from './ScanGuide3D';
 
 interface CameraScannerProps {
   onScanComplete: (state: CubeState) => void;
@@ -34,8 +35,8 @@ const SCAN_GUIDANCE: Record<Face, FaceScanGuidance> = {
     face: 'F',
     title: 'Front Face (Green Center)',
     centerColor: 'G',
-    actionBanner: 'Step 1: Hold GREEN Face Facing Camera',
-    actionSub: 'Keep WHITE on top, GREEN facing directly at the camera',
+    actionBanner: 'Step 1: Hold GREEN Facing Camera',
+    actionSub: 'Keep WHITE on top • GREEN facing camera • RED on right side',
     topBadge: { color: 'W', text: 'Top: White' },
     centerBadge: { color: 'G', text: 'Center: Green' },
     sideBadge: { color: 'R', text: 'Right: Red' },
@@ -45,41 +46,41 @@ const SCAN_GUIDANCE: Record<Face, FaceScanGuidance> = {
     face: 'R',
     title: 'Right Face (Red Center)',
     centerColor: 'R',
-    actionBanner: '↻ Rotate Cube 90° to the RIGHT',
-    actionSub: 'Keep WHITE on top • GREEN is now on your left side',
+    actionBanner: '↶ Turn Cube 90° to the LEFT',
+    actionSub: 'Keep WHITE on top • GREEN moves to left • RED faces camera',
     topBadge: { color: 'W', text: 'Top: White' },
     centerBadge: { color: 'R', text: 'Center: Red' },
     sideBadge: { color: 'G', text: 'Left: Green' },
-    rotationPrompt: 'Turn 90° Right'
+    rotationPrompt: 'Turn 90° Left'
   },
   B: {
     face: 'B',
     title: 'Back Face (Blue Center)',
     centerColor: 'B',
-    actionBanner: '↻ Rotate Cube 90° to the RIGHT again',
-    actionSub: 'Keep WHITE on top • RED is now on your left side',
+    actionBanner: '↶ Turn Cube 90° to the LEFT again',
+    actionSub: 'Keep WHITE on top • RED moves to left • BLUE faces camera',
     topBadge: { color: 'W', text: 'Top: White' },
     centerBadge: { color: 'B', text: 'Center: Blue' },
     sideBadge: { color: 'R', text: 'Left: Red' },
-    rotationPrompt: 'Turn 90° Right'
+    rotationPrompt: 'Turn 90° Left'
   },
   L: {
     face: 'L',
     title: 'Left Face (Orange Center)',
     centerColor: 'O',
-    actionBanner: '↻ Rotate Cube 90° to the RIGHT again',
-    actionSub: 'Keep WHITE on top • BLUE is now on your left side',
+    actionBanner: '↶ Turn Cube 90° to the LEFT again',
+    actionSub: 'Keep WHITE on top • BLUE moves to left • ORANGE faces camera',
     topBadge: { color: 'W', text: 'Top: White' },
     centerBadge: { color: 'O', text: 'Center: Orange' },
     sideBadge: { color: 'B', text: 'Left: Blue' },
-    rotationPrompt: 'Turn 90° Right'
+    rotationPrompt: 'Turn 90° Left'
   },
   U: {
     face: 'U',
     title: 'Top Face (White Center)',
     centerColor: 'W',
-    actionBanner: '⤓ Tilt Cube 90° DOWN Towards You',
-    actionSub: 'WHITE now faces camera • GREEN is now at the bottom edge',
+    actionBanner: '⤓ Tilt Cube 90° DOWN Toward You',
+    actionSub: 'Turn back to GREEN in front, then tilt DOWN • WHITE faces camera',
     topBadge: { color: 'B', text: 'Top Edge: Blue' },
     centerBadge: { color: 'W', text: 'Center: White' },
     sideBadge: { color: 'G', text: 'Bottom: Green' },
@@ -89,78 +90,22 @@ const SCAN_GUIDANCE: Record<Face, FaceScanGuidance> = {
     face: 'D',
     title: 'Bottom Face (Yellow Center)',
     centerColor: 'Y',
-    actionBanner: '⤒ Tilt Cube 180° UP Away from You',
-    actionSub: 'YELLOW now faces camera • GREEN is now at the top edge',
+    actionBanner: '⤒ Flip Cube 180° UP Away from You',
+    actionSub: 'Flip cube UP • YELLOW faces camera • GREEN is at top edge',
     topBadge: { color: 'G', text: 'Top Edge: Green' },
     centerBadge: { color: 'Y', text: 'Center: Yellow' },
     sideBadge: { color: 'B', text: 'Bottom: Blue' },
-    rotationPrompt: 'Tilt 180° Up'
+    rotationPrompt: 'Flip 180° Up'
   }
 };
 
-function getMiniCubeTransform(step: number): string {
-  switch (step) {
-    case 0: // Front (Green)
-      return 'rotateX(-14deg) rotateY(-20deg)';
-    case 1: // Right (Red)
-      return 'rotateX(-14deg) rotateY(-110deg)';
-    case 2: // Back (Blue)
-      return 'rotateX(-14deg) rotateY(-200deg)';
-    case 3: // Left (Orange)
-      return 'rotateX(-14deg) rotateY(-290deg)';
-    case 4: // Top (White)
-      return 'rotateX(76deg) rotateZ(0deg)';
-    case 5: // Bottom (Yellow)
-      return 'rotateX(-104deg) rotateZ(0deg)';
-    default:
-      return 'rotateX(-14deg) rotateY(-20deg)';
-  }
-}
-
 const MiniGuideCube: React.FC<{ step: number }> = ({ step }) => {
   return (
-    <div className="mini-cube-stage flex-shrink-0" title="Physical Cube Orientation">
-      <div 
-        className="mini-cube"
-        style={{ transform: getMiniCubeTransform(step) }}
-      >
-        {/* Front (Green) */}
-        <div className="mini-cube-face mini-face-f">
-          {Array(9).fill(0).map((_, i) => (
-            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.G.hex }} />
-          ))}
-        </div>
-        {/* Back (Blue) */}
-        <div className="mini-cube-face mini-face-b">
-          {Array(9).fill(0).map((_, i) => (
-            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.B.hex }} />
-          ))}
-        </div>
-        {/* Right (Red) */}
-        <div className="mini-cube-face mini-face-r">
-          {Array(9).fill(0).map((_, i) => (
-            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.R.hex }} />
-          ))}
-        </div>
-        {/* Left (Orange) */}
-        <div className="mini-cube-face mini-face-l">
-          {Array(9).fill(0).map((_, i) => (
-            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.O.hex }} />
-          ))}
-        </div>
-        {/* Up (White) */}
-        <div className="mini-cube-face mini-face-u">
-          {Array(9).fill(0).map((_, i) => (
-            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.W.hex }} />
-          ))}
-        </div>
-        {/* Down (Yellow) */}
-        <div className="mini-cube-face mini-face-d">
-          {Array(9).fill(0).map((_, i) => (
-            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.Y.hex }} />
-          ))}
-        </div>
-      </div>
+    <div 
+      className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-black/60 border border-white/25 overflow-hidden shadow-md"
+      title="Physical Cube 3D Orientation"
+    >
+      <ScanGuide3D currentStep={step} prevStep={step} isAnimating={false} size={40} />
     </div>
   );
 };
@@ -197,16 +142,26 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   const [showFinalReview, setShowFinalReview] = useState<boolean>(false);
   const [isAnimatingTurn, setIsAnimatingTurn] = useState<boolean>(false);
   const [turnAnimationKey, setTurnAnimationKey] = useState<number>(0);
-  // Track the previous step so we know which face color to show as "departing"
   const [prevScanStep, setPrevScanStep] = useState<number>(0);
+  const autoDismissTimerRef = useRef<number | null>(null);
 
   const triggerTurnAnimation = () => {
+    if (autoDismissTimerRef.current) {
+      clearTimeout(autoDismissTimerRef.current);
+    }
     setIsAnimatingTurn(true);
     setTurnAnimationKey(prev => prev + 1);
-    const timer = setTimeout(() => {
+    // 2.0s animation + 1.8s reading time = 3.8s auto dismiss (or user can click "Ready to Scan" anytime)
+    autoDismissTimerRef.current = window.setTimeout(() => {
       setIsAnimatingTurn(false);
-    }, 1700); // slightly longer than the longest animation (1.6s)
-    return () => clearTimeout(timer);
+    }, 3800);
+  };
+
+  const handleDismissTurnAnimation = () => {
+    if (autoDismissTimerRef.current) {
+      clearTimeout(autoDismissTimerRef.current);
+    }
+    setIsAnimatingTurn(false);
   };
 
   useEffect(() => {
@@ -214,25 +169,12 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
       setPrevScanStep(currentScanStep - 1);
       triggerTurnAnimation();
     }
+    return () => {
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+      }
+    };
   }, [currentScanStep]);
-
-  // Returns the CSS class for the rotating 3D box
-  const getCubeFlipClass = (): string => {
-    if (currentScanStep >= 1 && currentScanStep <= 3) return 'turn-right';
-    if (currentScanStep === 4) return 'tilt-down';
-    if (currentScanStep === 5) return 'tilt-up';
-    return '';
-  };
-
-  // Color hex for each scan step's face (used in 3D flip overlay)
-  const FACE_COLOR_HEX: Record<number, string> = {
-    0: '#00a651', // Front  = Green
-    1: '#c41e3a', // Right  = Red
-    2: '#003DA5', // Back   = Blue
-    3: '#ff6e00', // Left   = Orange
-    4: '#ffffff', // Top    = White
-    5: '#ffd500', // Bottom = Yellow
-  };
 
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -720,70 +662,53 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
               })}
             </div>
 
-            {/* TRUE 3D CUBE-FLIP OVERLAY — shown only during turn animation */}
+            {/* REAL 3D RUBIK'S CUBE ANIMATION OVERLAY */}
             {isAnimatingTurn && (
               <div
                 key={turnAnimationKey}
-                className="absolute inset-0 z-30 rounded-2xl overflow-hidden cube-anim-stage cube-anim-fadein"
-                style={{ borderRadius: '1rem' }}
+                className="absolute inset-0 z-30 rounded-2xl overflow-hidden bg-black/92 backdrop-blur-md flex flex-col items-center justify-between p-3 border-2 border-white/40 shadow-2xl animate-in fade-in duration-200"
               >
-                {/* The 3D rotating box */}
-                <div className={`cube-anim-box ${getCubeFlipClass()}`}>
-
-                  {/* CURRENT FACE (departing) — solid color of the face we just scanned */}
-                  <div
-                    className="cube-face-current flex flex-col items-center justify-center gap-2 border-2 border-white/30"
-                    style={{
-                      background: `linear-gradient(135deg, ${FACE_COLOR_HEX[prevScanStep]}dd, ${FACE_COLOR_HEX[prevScanStep]}88)`,
-                    }}
-                  >
-                    {/* 3x3 sticker grid visual */}
-                    <div className="grid grid-cols-3 gap-1.5 w-28 h-28 p-2">
-                      {Array(9).fill(0).map((_, i) => (
-                        <div
-                          key={i}
-                          className="rounded-md border border-black/30 shadow"
-                          style={{ backgroundColor: FACE_COLOR_HEX[prevScanStep] }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-black/70 text-[11px] font-black font-mono uppercase tracking-wider bg-white/60 px-2 py-0.5 rounded-full">
-                      Scanned ✓
-                    </span>
+                {/* Top instruction header */}
+                <div className="w-full text-center">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-[9px] font-mono font-black text-white uppercase tracking-wider mb-1">
+                    <span>3D Turn Guide • Face {currentScanStep + 1}/6</span>
                   </div>
-
-                  {/* NEXT FACE (arriving) — solid color of the face we're rotating to */}
-                  <div
-                    className="cube-face-next flex flex-col items-center justify-center gap-2 border-2 border-white/30"
-                    style={{
-                      background: `linear-gradient(135deg, ${FACE_COLOR_HEX[currentScanStep]}dd, ${FACE_COLOR_HEX[currentScanStep]}88)`,
-                    }}
-                  >
-                    {/* 3x3 sticker grid visual */}
-                    <div className="grid grid-cols-3 gap-1.5 w-28 h-28 p-2">
-                      {Array(9).fill(0).map((_, i) => (
-                        <div
-                          key={i}
-                          className="rounded-md border border-black/30 shadow opacity-60"
-                          style={{ backgroundColor: FACE_COLOR_HEX[currentScanStep] }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-black/70 text-[11px] font-black font-mono uppercase tracking-wider bg-white/60 px-2 py-0.5 rounded-full">
-                      {guidance.rotationPrompt}
-                    </span>
-                  </div>
-
-                </div>
-
-                {/* Text instruction pinned at bottom of overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/80 py-2 px-3 text-center pointer-events-none">
-                  <p className="text-white text-[11px] font-black font-mono tracking-tight leading-tight">
+                  <h3 className="text-xs sm:text-sm font-black font-mono text-white tracking-tight leading-tight">
                     {guidance.actionBanner}
-                  </p>
-                  <p className="text-neutral-300 text-[9px] mt-0.5 leading-snug">
+                  </h3>
+                  <p className="text-[10px] text-neutral-300 mt-0.5 leading-snug line-clamp-1">
                     {guidance.actionSub}
                   </p>
+                </div>
+
+                {/* The REAL 3D Rubik's Cube Animation */}
+                <div className="relative flex items-center justify-center my-auto">
+                  <ScanGuide3D
+                    currentStep={currentScanStep}
+                    prevStep={prevScanStep}
+                    isAnimating={isAnimatingTurn}
+                    size={175}
+                  />
+                </div>
+
+                {/* Bottom dismissal / ready buttons */}
+                <div className="w-full flex items-center justify-between gap-2 pt-1.5 border-t border-white/15">
+                  <button
+                    onClick={triggerTurnAnimation}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-[11px] font-mono font-bold text-white transition-all"
+                    title="Watch 3D turn animation again"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Replay</span>
+                  </button>
+
+                  <button
+                    onClick={handleDismissTurnAnimation}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black font-black text-xs hover:bg-neutral-200 active:scale-95 transition-all shadow-lg"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Ready to Scan</span>
+                  </button>
                 </div>
               </div>
             )}
