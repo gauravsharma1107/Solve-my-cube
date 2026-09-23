@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import { 
   Play, Pause, SkipBack, SkipForward, RotateCcw, 
   Volume2, VolumeX, Mic, MicOff,
-  Sparkles, Award, AlertTriangle, Compass, CheckCircle2, RotateCw
+  Sparkles, Award, AlertTriangle, Compass, CheckCircle2, RotateCw, RefreshCw
 } from 'lucide-react';
 import type { CubeState, SolutionStep, SolverMode, Face } from '../solver/cubeTypes';
 import { FACE_NAMES } from '../solver/cubeTypes';
@@ -350,8 +350,16 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                 </div>
 
                 <div className="text-[11px] text-neutral-400 font-mono mt-1 flex items-center gap-1.5">
-                  <RotateCw className="w-3 h-3 text-white" />
-                  <span>White highlighted slice &bull; Follow rotation arrow</span>
+                  {isDouble ? (
+                    <RefreshCw className="w-3 h-3 text-white stroke-[2.5]" />
+                  ) : isPrime ? (
+                    <RotateCcw className="w-3 h-3 text-white stroke-[2.5]" />
+                  ) : (
+                    <RotateCw className="w-3 h-3 text-white stroke-[2.5]" />
+                  )}
+                  <span>
+                    Highlighted slice &bull; Follow {isDouble ? '180°' : isPrime ? 'counter-clockwise ↺' : 'clockwise ↻'} 3D arrow
+                  </span>
                 </div>
               </div>
             </div>

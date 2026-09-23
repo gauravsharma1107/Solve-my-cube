@@ -16,17 +16,21 @@ export function solveWithBeginnerMethod(initialState: CubeState): SolutionStep[]
     curr = applyMove(curr, s.move);
 
     let currentPhase: string;
-    const progressRatio = (i + 1) / total;
-    if (progressRatio <= 0.25) {
-      currentPhase = 'Stage 1: White Cross & Alignment';
-    } else if (progressRatio <= 0.50) {
-      currentPhase = 'Stage 2: First Layer Corners';
-    } else if (progressRatio <= 0.70) {
-      currentPhase = 'Stage 3: Second Layer (F2L)';
-    } else if (progressRatio <= 0.85) {
-      currentPhase = 'Stage 4: Top Yellow Cross';
+    if (total <= 4) {
+      currentPhase = 'Final Alignment & Direct Finish';
     } else {
-      currentPhase = 'Stage 5: Final Layer Permutation';
+      const progressRatio = (i + 1) / total;
+      if (progressRatio <= 0.25) {
+        currentPhase = 'Stage 1: White Cross & Alignment';
+      } else if (progressRatio <= 0.50) {
+        currentPhase = 'Stage 2: First Layer Corners';
+      } else if (progressRatio <= 0.70) {
+        currentPhase = 'Stage 3: Second Layer (F2L)';
+      } else if (progressRatio <= 0.85) {
+        currentPhase = 'Stage 4: Top Yellow Cross';
+      } else {
+        currentPhase = 'Stage 5: Final Layer Permutation';
+      }
     }
 
     result.push({

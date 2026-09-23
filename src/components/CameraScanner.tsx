@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { 
   Camera, RefreshCw, CheckCircle2, ChevronRight, ChevronLeft, 
-  AlertTriangle, RotateCw, Upload, Compass, Play
+  AlertTriangle, RotateCw, Upload, Play
 } from 'lucide-react';
 import type { CubeColor, CubeState, Face, FaceState } from '../solver/cubeTypes';
 import { CUBE_COLORS, FACE_NAMES } from '../solver/cubeTypes';
@@ -98,6 +98,73 @@ const SCAN_GUIDANCE: Record<Face, FaceScanGuidance> = {
   }
 };
 
+function getMiniCubeTransform(step: number): string {
+  switch (step) {
+    case 0: // Front (Green)
+      return 'rotateX(-14deg) rotateY(-20deg)';
+    case 1: // Right (Red)
+      return 'rotateX(-14deg) rotateY(-110deg)';
+    case 2: // Back (Blue)
+      return 'rotateX(-14deg) rotateY(-200deg)';
+    case 3: // Left (Orange)
+      return 'rotateX(-14deg) rotateY(-290deg)';
+    case 4: // Top (White)
+      return 'rotateX(76deg) rotateZ(0deg)';
+    case 5: // Bottom (Yellow)
+      return 'rotateX(-104deg) rotateZ(0deg)';
+    default:
+      return 'rotateX(-14deg) rotateY(-20deg)';
+  }
+}
+
+const MiniGuideCube: React.FC<{ step: number }> = ({ step }) => {
+  return (
+    <div className="mini-cube-stage flex-shrink-0" title="Physical Cube Orientation">
+      <div 
+        className="mini-cube"
+        style={{ transform: getMiniCubeTransform(step) }}
+      >
+        {/* Front (Green) */}
+        <div className="mini-cube-face mini-face-f">
+          {Array(9).fill(0).map((_, i) => (
+            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.G.hex }} />
+          ))}
+        </div>
+        {/* Back (Blue) */}
+        <div className="mini-cube-face mini-face-b">
+          {Array(9).fill(0).map((_, i) => (
+            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.B.hex }} />
+          ))}
+        </div>
+        {/* Right (Red) */}
+        <div className="mini-cube-face mini-face-r">
+          {Array(9).fill(0).map((_, i) => (
+            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.R.hex }} />
+          ))}
+        </div>
+        {/* Left (Orange) */}
+        <div className="mini-cube-face mini-face-l">
+          {Array(9).fill(0).map((_, i) => (
+            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.O.hex }} />
+          ))}
+        </div>
+        {/* Up (White) */}
+        <div className="mini-cube-face mini-face-u">
+          {Array(9).fill(0).map((_, i) => (
+            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.W.hex }} />
+          ))}
+        </div>
+        {/* Down (Yellow) */}
+        <div className="mini-cube-face mini-face-d">
+          {Array(9).fill(0).map((_, i) => (
+            <div key={i} className="mini-cube-sticker" style={{ backgroundColor: CUBE_COLORS.Y.hex }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const CameraScanner: React.FC<CameraScannerProps> = ({
   onScanComplete,
   onCancel,
@@ -128,6 +195,37 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   const [isFaceCaptured, setIsFaceCaptured] = useState<boolean>(false);
   const [uploadedImageSrc, setUploadedImageSrc] = useState<string | null>(null);
   const [showFinalReview, setShowFinalReview] = useState<boolean>(false);
+  const [isAnimatingTurn, setIsAnimatingTurn] = useState<boolean>(false);
+  const [turnAnimationKey, setTurnAnimationKey] = useState<number>(0);
+
+  const triggerTurnAnimation = () => {
+    setIsAnimatingTurn(true);
+    setTurnAnimationKey(prev => prev + 1);
+    const timer = setTimeout(() => {
+      setIsAnimatingTurn(false);
+    }, 850);
+    return () => clearTimeout(timer);
+  };
+
+  useEffect(() => {
+    if (currentScanStep > 0) {
+      triggerTurnAnimation();
+    }
+  }, [currentScanStep]);
+
+  const getGridAnimationClass = () => {
+    if (!isAnimatingTurn) return '';
+    if (currentScanStep >= 1 && currentScanStep <= 3) {
+      return 'animate-grid-turn-right';
+    }
+    if (currentScanStep === 4) {
+      return 'animate-grid-tilt-down';
+    }
+    if (currentScanStep === 5) {
+      return 'animate-grid-tilt-up';
+    }
+    return '';
+  };
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const reticleRef = useRef<HTMLDivElement | null>(null);
@@ -491,17 +589,27 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
         <canvas ref={canvasRef} className="hidden" />
 
         {/* PROMINENT ON-SCREEN ORIENTATION & TURN BANNER */}
-        <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-4 sm:right-4 z-20 flex flex-col items-center gap-1 pointer-events-none">
-          {/* Main Action Pill */}
-          <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-2xl bg-black/90 backdrop-blur-md border border-white/30 text-white shadow-2xl flex items-center gap-2 max-w-md text-center">
-            <Compass className="w-4 h-4 text-white flex-shrink-0 animate-pulse" />
-            <div className="flex flex-col text-left">
-              <span className="text-xs sm:text-sm font-black font-mono tracking-tight leading-none text-white">
+        <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-4 sm:right-4 z-20 flex flex-col items-center gap-1.5 pointer-events-none">
+          {/* Main Action Pill with 3D Miniature Guide Cube & Replay Button */}
+          <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl bg-black/90 backdrop-blur-md border border-white/30 text-white shadow-2xl flex items-center gap-3 max-w-md w-full sm:w-auto">
+            <MiniGuideCube step={currentScanStep} />
+            <div className="flex flex-col text-left flex-1 min-w-0">
+              <span className="text-xs sm:text-sm font-black font-mono tracking-tight leading-none text-white truncate">
                 {guidance.actionBanner}
               </span>
               <span className="text-[10px] sm:text-[11px] text-neutral-300 mt-0.5 leading-snug line-clamp-1">
                 {guidance.actionSub}
               </span>
+            </div>
+            <div className="pointer-events-auto flex-shrink-0">
+              <button
+                onClick={triggerTurnAnimation}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 text-[10px] font-mono font-bold text-white transition-all shadow-sm"
+                title="Replay physical turn animation"
+              >
+                <Play className="w-2.5 h-2.5 fill-white text-white" />
+                <span>Replay</span>
+              </button>
             </div>
           </div>
 
@@ -528,8 +636,29 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
         <div className="relative z-10 flex flex-col items-center mt-12 sm:mt-14">
           <div 
             ref={reticleRef}
-            className="relative w-[min(74vw,280px)] h-[min(74vw,280px)] border-2 border-white/80 rounded-2xl p-2 sm:p-2.5 backdrop-blur-xs shadow-2xl grid grid-cols-3 grid-rows-3 gap-1.5 sm:gap-2 bg-black/40"
+            key={turnAnimationKey}
+            className={`relative w-[min(74vw,280px)] h-[min(74vw,280px)] border-2 border-white/80 rounded-2xl p-2 sm:p-2.5 backdrop-blur-xs shadow-2xl grid grid-cols-3 grid-rows-3 gap-1.5 sm:gap-2 bg-black/40 transition-transform ${getGridAnimationClass()}`}
           >
+            {/* Animated Turn Instruction Overlay across the grid */}
+            {isAnimatingTurn && (
+              <div className="absolute inset-0 z-30 rounded-2xl bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center pointer-events-none transition-all">
+                <div className="w-14 h-14 rounded-2xl bg-white text-black flex items-center justify-center mb-2 shadow-2xl">
+                  {currentScanStep >= 1 && currentScanStep <= 3 ? (
+                    <RotateCw className="w-8 h-8 stroke-[2.5]" />
+                  ) : currentScanStep === 4 ? (
+                    <ChevronRight className="w-8 h-8 stroke-[2.5] rotate-90" />
+                  ) : (
+                    <ChevronRight className="w-8 h-8 stroke-[2.5] -rotate-90" />
+                  )}
+                </div>
+                <span className="text-xs font-black font-mono text-white tracking-tight uppercase">
+                  {guidance.actionBanner}
+                </span>
+                <span className="text-[10px] text-neutral-300 mt-0.5 font-medium line-clamp-1">
+                  {guidance.actionSub}
+                </span>
+              </div>
+            )}
             {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(idx => {
               const displayColor = isFaceCaptured 
                 ? scannedFaces[currentFace][idx] 

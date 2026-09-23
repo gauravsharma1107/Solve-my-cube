@@ -240,72 +240,125 @@ export const Cube3DViewer = forwardRef<Cube3DViewerRef, Cube3DViewerProps>(({
     const isDouble = trimmed.includes('2');
 
     const arrowGroup = new THREE.Group();
-    // High-contrast pure white glowing rotation arrow
     const arrowColor = 0xffffff;
 
-    const arcRadius = 1.08;
-    const tubeRadius = 0.075;
+    // Face basis vectors: center, u (right for viewer), v (up for viewer)
+    const center = new THREE.Vector3(0, 0, 0);
+    const u = new THREE.Vector3(1, 0, 0);
+    const v = new THREE.Vector3(0, 1, 0);
+    const offset = 1.72;
 
-    // Torus arc
-    const torus = new THREE.Mesh(
-      new THREE.TorusGeometry(arcRadius, tubeRadius, 16, 48, Math.PI * 1.5),
-      new THREE.MeshBasicMaterial({
-        color: arrowColor,
-        transparent: true,
-        opacity: 0.95,
-        depthTest: false // NEVER occluded behind cubies!
-      })
-    );
-    torus.renderOrder = 999;
-
-    // Arrowhead cone
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(0.22, 0.42, 16),
-      new THREE.MeshBasicMaterial({
-        color: arrowColor,
-        transparent: true,
-        opacity: 0.95,
-        depthTest: false // NEVER occluded behind cubies!
-      })
-    );
-    cone.renderOrder = 999;
-
-    cone.position.set(arcRadius, 0, 0);
-    cone.rotation.z = isPrime ? Math.PI : 0;
-
-    arrowGroup.add(torus);
-    arrowGroup.add(cone);
-
-    const offset = 1.68;
     switch (face) {
-      case 'U':
-        arrowGroup.position.set(0, offset, 0);
-        arrowGroup.rotation.set(-Math.PI / 2, 0, isPrime ? Math.PI : 0);
-        break;
-      case 'D':
-        arrowGroup.position.set(0, -offset, 0);
-        arrowGroup.rotation.set(Math.PI / 2, 0, isPrime ? 0 : Math.PI);
-        break;
       case 'F':
-        arrowGroup.position.set(0, 0, offset);
-        arrowGroup.rotation.set(0, 0, isPrime ? Math.PI : 0);
+        center.set(0, 0, offset);
+        u.set(1, 0, 0);
+        v.set(0, 1, 0);
         break;
       case 'B':
-        arrowGroup.position.set(0, 0, -offset);
-        arrowGroup.rotation.set(0, Math.PI, isPrime ? 0 : Math.PI);
+        center.set(0, 0, -offset);
+        u.set(-1, 0, 0);
+        v.set(0, 1, 0);
+        break;
+      case 'U':
+        center.set(0, offset, 0);
+        u.set(1, 0, 0);
+        v.set(0, 0, -1);
+        break;
+      case 'D':
+        center.set(0, -offset, 0);
+        u.set(1, 0, 0);
+        v.set(0, 0, 1);
         break;
       case 'R':
-        arrowGroup.position.set(offset, 0, 0);
-        arrowGroup.rotation.set(0, Math.PI / 2, isPrime ? Math.PI : 0);
+        center.set(offset, 0, 0);
+        u.set(0, 0, -1);
+        v.set(0, 1, 0);
         break;
       case 'L':
-        arrowGroup.position.set(-offset, 0, 0);
-        arrowGroup.rotation.set(0, -Math.PI / 2, isPrime ? 0 : Math.PI);
+        center.set(-offset, 0, 0);
+        u.set(0, 0, 1);
+        v.set(0, 1, 0);
         break;
     }
 
+    const arcRadius = 1.08;
+    const tubeRadius = 0.08;
+
+    // Arc angular parameters in (u, v) plane:
+    // theta = pi/2 is 12 o'clock (+v)
+    // theta = 0 is 3 o'clock (+u)
+    // theta = -pi/2 is 6 o'clock (-v)
+    // theta = pi is 9 o'clock (-u)
+    let startAngle: number;
+    let sweepAngle: number;
+
     if (isDouble) {
-      arrowGroup.scale.set(1.2, 1.2, 1.2);
+      // 180° turn: 270° arc from 9 o'clock to 6 o'clock
+      startAngle = Math.PI;
+      sweepAngle = -Math.PI * 1.5;
+    } else if (isPrime) {
+      // Counter-Clockwise (Prime): theta increases (12 o'clock -> 9 o'clock -> 6 o'clock)
+      startAngle = Math.PI * 0.25;
+      sweepAngle = Math.PI * 1.15;
+    } else {
+      // Clockwise: theta decreases (12 o'clock -> 3 o'clock -> 6 o'clock)
+      startAngle = Math.PI * 0.75;
+      sweepAngle = -Math.PI * 1.15;
+    }
+
+    // Sample points along the parametric curve in 3D space
+    const numPoints = 36;
+    const points: THREE.Vector3[] = [];
+    for (let i = 0; i <= numPoints; i++) {
+      const t = i / numPoints;
+      const angle = startAngle + sweepAngle * t;
+      const pt = center.clone()
+        .addScaledVector(u, arcRadius * Math.cos(angle))
+        .addScaledVector(v, arcRadius * Math.sin(angle));
+      points.push(pt);
+    }
+
+    const curve = new THREE.CatmullRomCurve3(points);
+    const tubeGeom = new THREE.TubeGeometry(curve, 32, tubeRadius, 10, false);
+    const tubeMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      transparent: true,
+      opacity: 0.95,
+      depthTest: false
+    });
+    const tube = new THREE.Mesh(tubeGeom, tubeMat);
+    tube.renderOrder = 999;
+    arrowGroup.add(tube);
+
+    // Primary Arrowhead Cone at the end of the arc pointing along the exact tangent
+    const coneGeom = new THREE.ConeGeometry(0.24, 0.44, 16);
+    const coneMat = new THREE.MeshBasicMaterial({
+      color: arrowColor,
+      transparent: true,
+      opacity: 0.95,
+      depthTest: false
+    });
+    const cone = new THREE.Mesh(coneGeom, coneMat);
+    cone.renderOrder = 999;
+
+    const endPos = points[points.length - 1];
+    const prevPos = points[points.length - 2];
+    const tangent = new THREE.Vector3().subVectors(endPos, prevPos).normalize();
+
+    cone.position.copy(endPos);
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+    arrowGroup.add(cone);
+
+    // If double turn (180°), add second arrowhead at start as well
+    if (isDouble) {
+      const cone2 = new THREE.Mesh(coneGeom, coneMat);
+      cone2.renderOrder = 999;
+      const startPos = points[0];
+      const nextPos = points[1];
+      const startTangent = new THREE.Vector3().subVectors(startPos, nextPos).normalize();
+      cone2.position.copy(startPos);
+      cone2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), startTangent);
+      arrowGroup.add(cone2);
     }
 
     arrowGroupRef.current.add(arrowGroup);
