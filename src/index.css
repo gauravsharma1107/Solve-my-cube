@@ -83,62 +83,71 @@
   background: rgba(255, 255, 255, 0.45);
 }
 
-/* 3D Scanning Reticle Rotation Animations */
+/* 3D Scanning Reticle Rotation Animations - slow, smooth, instructional */
 @keyframes gridRotateRight {
   0% {
-    transform: perspective(700px) rotateY(-85deg) scale(0.85);
-    opacity: 0.2;
+    transform: perspective(600px) rotateY(-72deg) scale(0.88);
+    opacity: 0;
   }
-  60% {
-    transform: perspective(700px) rotateY(10deg) scale(1.03);
-    opacity: 0.9;
+  15% {
+    opacity: 0.85;
+  }
+  75% {
+    transform: perspective(600px) rotateY(4deg) scale(1.01);
+    opacity: 1;
   }
   100% {
-    transform: perspective(700px) rotateY(0deg) scale(1);
+    transform: perspective(600px) rotateY(0deg) scale(1);
     opacity: 1;
   }
 }
 
 @keyframes gridTiltDown {
   0% {
-    transform: perspective(700px) rotateX(85deg) scale(0.85);
-    opacity: 0.2;
+    transform: perspective(600px) rotateX(70deg) scale(0.88);
+    opacity: 0;
   }
-  60% {
-    transform: perspective(700px) rotateX(-10deg) scale(1.03);
-    opacity: 0.9;
+  15% {
+    opacity: 0.85;
+  }
+  75% {
+    transform: perspective(600px) rotateX(-5deg) scale(1.01);
+    opacity: 1;
   }
   100% {
-    transform: perspective(700px) rotateX(0deg) scale(1);
+    transform: perspective(600px) rotateX(0deg) scale(1);
     opacity: 1;
   }
 }
 
 @keyframes gridTiltUp {
   0% {
-    transform: perspective(700px) rotateX(-120deg) scale(0.85);
-    opacity: 0.2;
+    transform: perspective(600px) rotateX(-80deg) scale(0.88);
+    opacity: 0;
   }
-  60% {
-    transform: perspective(700px) rotateX(15deg) scale(1.03);
-    opacity: 0.9;
+  15% {
+    opacity: 0.85;
+  }
+  75% {
+    transform: perspective(600px) rotateX(6deg) scale(1.01);
+    opacity: 1;
   }
   100% {
-    transform: perspective(700px) rotateX(0deg) scale(1);
+    transform: perspective(600px) rotateX(0deg) scale(1);
     opacity: 1;
   }
 }
 
 .animate-grid-turn-right {
-  animation: gridRotateRight 0.85s cubic-bezier(0.2, 0.85, 0.32, 1.2) forwards;
+  animation: gridRotateRight 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 .animate-grid-tilt-down {
-  animation: gridTiltDown 0.85s cubic-bezier(0.2, 0.85, 0.32, 1.2) forwards;
+  animation: gridTiltDown 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 .animate-grid-tilt-up {
-  animation: gridTiltUp 0.85s cubic-bezier(0.2, 0.85, 0.32, 1.2) forwards;
+  animation: gridTiltUp 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 /* 3D Miniature Guide Cube Styles */

@@ -139,101 +139,74 @@ export function sampleRegionAverageRGB(
 }
 
 // Reference LAB centroids for standard Rubik's cube sticker colors
+// These represent typical plastic sRGB values under warm indoor LED/sunlight
+// W=(255,255,255) Y=(255,213,0) G=(0,155,72) B=(0,70,173) R=(183,18,52) O=(255,88,0)
 const REF_LAB: Record<CubeColor, LAB> = {
-  W: { l: 92, a: 0, b: 2 },        // Neutral white, low chroma
-  Y: { l: 85, a: -6, b: 78 },      // Bright yellow, high positive b
-  G: { l: 52, a: -48, b: 28 },     // Strong negative a (green)
-  B: { l: 38, a: 12, b: -58 },     // Strong negative b (blue)
-  R: { l: 44, a: 56, b: 32 },      // High positive a (red)
-  O: { l: 62, a: 45, b: 65 },      // High positive a and b, higher L than red
-  X: { l: 15, a: 0, b: 0 }         // Blank dark gray
+  W: { l: 95, a:  -1, b:   4 },   // near-white, slight warm tint
+  Y: { l: 84, a:  -4, b:  82 },   // vivid yellow: very high +b
+  G: { l: 57, a: -46, b:  27 },   // vivid green: high -a
+  B: { l: 30, a:  15, b: -50 },   // vivid blue: high -b
+  R: { l: 41, a:  60, b:  35 },   // vivid red: high +a
+  O: { l: 56, a:  46, b:  60 },   // vivid orange: high +a, +b, higher L than red
+  X: { l: 15, a:   0, b:   0 }    // blank / dark gray
 };
 
 /**
- * High-accuracy Rubik's cube color classifier.
- * Uses CIE LAB color distance + HSV hue & saturation verification.
+ * High-accuracy Rubik's cube color classifier using weighted CIE LAB Delta-E.
+ *
+ * Rather than fragile if-chains (which break under different lighting), this
+ * uses a fully learned, weighted nearest-neighbour approach:
+ *   - Chroma (a*, b*) weighted 2× relative to lightness (L*)
+ *   - White detection uses a strict low-chroma + high-L gate before NN
+ *   - Black/plastic edge (X) detection gates out sensor noise
  */
 export function classifyColor(rgb: RGB, _centerRgb?: RGB, _centerColorExpected?: CubeColor): CubeColor {
-  const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
   const lab = rgbToLab(rgb.r, rgb.g, rgb.b);
-
   const chroma = Math.sqrt(lab.a * lab.a + lab.b * lab.b);
 
-  // 1. WHITE DETECTION:
-  // Under typical indoor lighting, white stickers have high lightness and low chroma
-  const maxDiff = Math.max(
-    Math.abs(rgb.r - rgb.g),
-    Math.abs(rgb.g - rgb.b),
-    Math.abs(rgb.r - rgb.b)
-  );
+  // Early exit: very dark → probably plastic border captured, return X
+  if (lab.l < 12) return 'X';
 
-  if (hsv.v > 0.45 && (chroma < 18 || (hsv.s < 0.22 && maxDiff < 38))) {
-    return 'W';
-  }
+  // Early exit: very high L + very low chroma → unambiguously white
+  if (lab.l > 78 && chroma < 14) return 'W';
 
-  // If very desaturated, it's white
-  if (hsv.s < 0.18 && hsv.v > 0.40) {
-    return 'W';
-  }
-
-  // 2. BLUE DETECTION:
-  // Strong blue component: b is significantly higher than green, and LAB b is negative
-  if (rgb.b > rgb.r + 15 && rgb.b > rgb.g - 10 && (hsv.h >= 170 && hsv.h <= 265)) {
-    return 'B';
-  }
-  if (lab.b < -15 && lab.a < 25) {
-    return 'B';
-  }
-
-  // 3. GREEN DETECTION:
-  // Green channel dominates, LAB a is strongly negative
-  if (rgb.g > rgb.r + 10 && rgb.g > rgb.b + 10 && (hsv.h >= 75 && hsv.h <= 170)) {
-    return 'G';
-  }
-  if (lab.a < -20 && lab.b > -10) {
-    return 'G';
-  }
-
-  // 4. YELLOW DETECTION:
-  // High red + high green, low blue, LAB b is strongly positive, hue between 40 and 75
-  if (hsv.h >= 40 && hsv.h < 75 && hsv.s > 0.35 && hsv.v > 0.50) {
-    return 'Y';
-  }
-  if (lab.b > 50 && lab.a < 15 && lab.l > 60) {
-    return 'Y';
-  }
-
-  // 5. RED vs ORANGE DISCRIMINATION:
-  // Both have high red and low blue.
-  // Orange has significantly more green (g > 70 and g/r > 0.35) and higher lightness.
-  // Red has low green and lower lightness.
-  if (hsv.h >= 14 && hsv.h < 42) {
-    if (rgb.g > rgb.r * 0.38 && lab.l > 48 && lab.b > 38) {
-      return 'O';
-    }
-    return 'R';
-  }
-
-  if (hsv.h >= 345 || hsv.h < 14) {
-    return 'R';
-  }
-
-  // 6. DELTA-E FALLBACK (CIE LAB Nearest Neighbor):
-  let bestColor: CubeColor = 'W';
-  let minDistance = Infinity;
-
+  // Weighted Delta-E nearest-neighbour across all candidate colors
+  // Weights: L*=0.6, a*=1.4, b*=1.4  (chrominance matters more than luminance)
   const candidateColors: CubeColor[] = ['W', 'Y', 'G', 'B', 'R', 'O'];
+  let bestColor: CubeColor = 'W';
+  let minDist = Infinity;
+  let secondDist = Infinity;
+
   for (const c of candidateColors) {
     const ref = REF_LAB[c];
-    // Weighted Delta-E: higher weight on a and b (chromaticity) than L (luminance)
-    const dl = (lab.l - ref.l) * 0.7;
-    const da = (lab.a - ref.a) * 1.2;
-    const db = (lab.b - ref.b) * 1.2;
+    const dl = (lab.l - ref.l) * 0.6;
+    const da = (lab.a - ref.a) * 1.4;
+    const db = (lab.b - ref.b) * 1.4;
     const dist = Math.sqrt(dl * dl + da * da + db * db);
-
-    if (dist < minDistance) {
-      minDistance = dist;
+    if (dist < minDist) {
+      secondDist = minDist;
+      minDist = dist;
       bestColor = c;
+    } else if (dist < secondDist) {
+      secondDist = dist;
+    }
+  }
+
+  // Ambiguous classification: if best and second-best are very close,
+  // use chroma-axis tiebreakers for known confusable pairs
+  const ambiguous = secondDist - minDist < 8;
+  if (ambiguous) {
+    // Red vs Orange: orange has notably higher b* and L*
+    if ((bestColor === 'R' || bestColor === 'O')) {
+      bestColor = (lab.b > 48 && lab.l > 48) ? 'O' : 'R';
+    }
+    // White vs Yellow: yellow has distinctly high b*
+    if ((bestColor === 'W' || bestColor === 'Y')) {
+      bestColor = (lab.b > 40) ? 'Y' : 'W';
+    }
+    // Green vs Yellow: green has strongly negative a*
+    if ((bestColor === 'G' || bestColor === 'Y')) {
+      bestColor = (lab.a < -15) ? 'G' : 'Y';
     }
   }
 

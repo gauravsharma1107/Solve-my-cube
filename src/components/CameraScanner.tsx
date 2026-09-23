@@ -203,7 +203,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     setTurnAnimationKey(prev => prev + 1);
     const timer = setTimeout(() => {
       setIsAnimatingTurn(false);
-    }, 850);
+    }, 1500);
     return () => clearTimeout(timer);
   };
 
@@ -362,6 +362,28 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     return sampled;
   };
 
+  // Temporal smoothing: rolling buffer of last N frame classifications per cell
+  const frameBufferRef = useRef<CubeColor[][]>([]);
+  const FRAME_BUFFER_SIZE = 10;
+
+  // Reset frame buffer when face changes
+  useEffect(() => {
+    frameBufferRef.current = [];
+  }, [currentScanStep]);
+
+  // Majority-vote over accumulated frames for each cell
+  const getMajorityColors = (frames: CubeColor[][]): CubeColor[] => {
+    if (frames.length === 0) return Array(9).fill('W') as CubeColor[];
+    return Array.from({ length: 9 }, (_, i) => {
+      const votes: Record<string, number> = {};
+      for (const frame of frames) {
+        const c = frame[i];
+        votes[c] = (votes[c] ?? 0) + 1;
+      }
+      return Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0] as CubeColor;
+    });
+  };
+
   // Live video frame analysis loop
   useEffect(() => {
     const processFrame = () => {
@@ -377,7 +399,16 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
           const sampled = sampleAccurateReticleGrid(ctx, video, reticle);
-          setLiveColors(sampled);
+
+          // Push to rolling buffer
+          frameBufferRef.current.push(sampled);
+          if (frameBufferRef.current.length > FRAME_BUFFER_SIZE) {
+            frameBufferRef.current.shift();
+          }
+
+          // Display majority-voted colors
+          const smoothed = getMajorityColors(frameBufferRef.current);
+          setLiveColors(smoothed);
         }
       }
       animationFrameRef.current = requestAnimationFrame(processFrame);
