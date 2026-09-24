@@ -15,29 +15,31 @@ interface HumanStageDef {
 }
 
 // Stage definitions for Layer-by-Layer (LBL) Beginner Method
+// Stage definitions for Layer-by-Layer (LBL) Beginner Method
+// Strictly aligned with J Perm's 3x3 Beginner Method Tutorial (YouTube: 7Ron6MN45LY)
 const LBL_STAGES: HumanStageDef[] = [
-  // Stage 1: White Cross
+  // Step 1: White Cross (J Perm 0:20)
   {
     name: {
-      en: 'Stage 1: White Cross & Center Alignment',
-      hi: 'चरण 1: सफ़ेद क्रॉस और केंद्र मिलान',
-      'hi-hinglish': 'स्टेज 1: व्हाइट क्रॉस और सेंटर मैचिंग',
-      hinglish: 'Stage 1: White Cross & Center Alignment',
+      en: 'Step 1: White Cross (J Perm 0:20)',
+      hi: 'चरण 1: सफ़ेद क्रॉस (जे पर्म 0:20)',
+      'hi-hinglish': 'स्टेज 1: व्हाइट क्रॉस (J Perm 0:20)',
+      hinglish: 'Step 1: White Cross (J Perm 0:20)',
     },
     subStages: {
-      en: ['Locate White Edge', 'Align Side Sticker with Center', 'Rotate Edge into Bottom Cross'],
-      hi: ['सफ़ेद किनारे को ढूंढें', 'किनारे के रंग को केंद्र से मिलाएं', 'किनारे को नीचे क्रॉस में लाएं'],
-      'hi-hinglish': ['व्हाइट एज को ढूंढें', 'साइड कलर को सेंटर से मैच करें', 'एज को बॉटम क्रॉस में सेट करें'],
-      hinglish: ['White edge dhundein', 'Side color ko center se match karein', 'Edge ko bottom cross mein laayein'],
+      en: ['Locate White Edge Piece', 'Match Side Color with Center', 'Turn 180° into Bottom White Cross'],
+      hi: ['सफ़ेद किनारे वाले टुकड़े को ढूंढें', 'किनारे के साइड कलर को केंद्र से मिलाएं', '180° घुमाकर नीचे सफ़ेद क्रॉस में लाएं'],
+      'hi-hinglish': ['व्हाइट एज पीस को ढूंढें', 'एज के साइड कलर को सेंटर से मैच करें', '180° टर्न देकर नीचे व्हाइट क्रॉस में सेट करें'],
+      hinglish: ['White edge piece locate karein', 'Edge ke side color ko center se match karein', '180° turn karke bottom white cross mein layein'],
     },
-    algorithms: ['Cross Insertion', 'Center Alignment', 'F2 / R2 Swing'],
+    algorithms: ['Center Matching Swing (F2 / R2 / B2 / L2)', 'Daisy to Cross Alignment', 'Direct Cross Insertion'],
     reasons: {
       en: (move) => {
-        if (move.startsWith('U')) return 'Rotate the top layer to align the edge side color with its matching center before insertion.';
+        if (move.startsWith('U')) return 'Rotate the top layer to align the edge side color with its matching center piece.';
         if (move.startsWith('F') || move.startsWith('R') || move.startsWith('L') || move.startsWith('B')) {
           return `Rotate ${move[0]} face to bring the white edge into the bottom layer without disturbing other solved cross edges.`;
         }
-        return 'Position the edge piece for clean alignment into the white cross.';
+        return 'Position the white edge for clean alignment into the cross.';
       },
       hi: (move) => {
         if (move.startsWith('U')) return 'ऊपरी परत को घुमाएं ताकि किनारे का रंग अपने केंद्र के रंग से पूरी तरह मिल जाए।';
@@ -54,7 +56,7 @@ const LBL_STAGES: HumanStageDef[] = [
         return 'एज पीस को व्हाइट क्रॉस में सही जगह बैठाएं।';
       },
       hinglish: (move) => {
-        if (move.startsWith('U')) return 'Top layer ko ghumayein taaki edge ka side color center se perfectly match ho jaaye.';
+        if (move.startsWith('U')) return 'Top layer ko turn karein taaki edge ka side color center se perfectly match ho jaaye.';
         if (move.startsWith('F') || move.startsWith('R') || move.startsWith('L') || move.startsWith('B')) {
           return `${move[0]} face ko ghuma kar white edge ko bottom layer mein layein bina baki cross ko disturb kiye.`;
         }
@@ -62,300 +64,300 @@ const LBL_STAGES: HumanStageDef[] = [
       },
     },
     tips: {
-      en: 'Tip: Always solve cross edges by matching their side colors to the adjacent center pieces first, then rotating 180° into the bottom layer.',
-      hi: 'सुझाव: हमेशा सफ़ेद किनारों के रंग को पहले बगल के केंद्र से मिलाएं, फिर उसे 180° घुमाकर नीचे क्रॉस में लाएं।',
-      'hi-hinglish': 'टिप: हमेशा व्हाइट एज को पहले साइड वाले सेंटर से मैच करें, फिर 180° घुमाकर नीचे क्रॉस में सेट करें।',
-      hinglish: 'Tip: Hamesha white edge ke side color ko pehle center se match karein, phir 180° rotate karke bottom layer mein laayein.',
+      en: "J Perm Tip (0:20): Always match the edge side color to its center first! Once matched, turn that face 180° into the bottom layer so white touches the white center.",
+      hi: "जे पर्म सुझाव (0:20): हमेशा किनारे के साइड रंग को पहले केंद्र से मिलाएं! फिर 180° घुमाकर नीचे सफ़ेद केंद्र के साथ जोड़ें।",
+      'hi-hinglish': "J Perm टिप (0:20): हमेशा एज के साइड कलर को पहले सेंटर से मैच करें! फिर उस फेस को 180° घुमाकर नीचे व्हाइट सेंटर से जोड़ें।",
+      hinglish: "J Perm Tip (0:20): Hamesha edge ke side color ko pehle center se match karein! Phir us face ko 180° ghuma kar bottom white cross mein lock karein.",
     },
   },
 
-  // Stage 2: First Layer Corners
+  // Step 2: First Layer Corners - The 4-Moves (J Perm 1:44)
   {
     name: {
-      en: 'Stage 2: First Layer Corners (White Corners)',
-      hi: 'चरण 2: प्रथम परत के कोने (सफ़ेद कोने)',
-      'hi-hinglish': 'स्टेज 2: फर्स्ट लेयर कॉर्नर्स (व्हाइट कॉर्नर्स)',
-      hinglish: 'Stage 2: First Layer Corners (White Corners)',
+      en: 'Step 2: First Layer Corners - The 4-Moves (J Perm 1:44)',
+      hi: 'चरण 2: प्रथम परत के कोने - 4-चालें (जे पर्म 1:44)',
+      'hi-hinglish': 'स्टेज 2: फर्स्ट लेयर कॉर्नर्स - 4-मूव्स (J Perm 1:44)',
+      hinglish: 'Step 2: First Layer Corners - The 4-Moves (J Perm 1:44)',
     },
     subStages: {
-      en: ['Position Corner Above Slot', 'Execute Sexy Move (R U R\' U\')', 'Seat Corner with White Facing Down'],
-      hi: ['कोने को लक्ष्य स्लॉट के ऊपर रखें', 'सेक्सी मूव (R U R\' U\') चलाएं', 'कोने को सफ़ेद रंग नीचे करके बैठाएं'],
-      'hi-hinglish': ['कॉर्नर को स्लॉट के ऊपर लाएं', 'सेक्सी मूव (R U R\' U\') लगाएं', 'कॉर्नर को व्हाइट नीचे करके लॉक करें'],
-      hinglish: ['Corner ko target slot ke upar layein', 'Sexy Move (R U R\' U\') lagayein', 'Corner ko white bottom par lock karein'],
+      en: ['Position White Corner Above Matching Slot', "Apply Right 4-Moves (R U R' U')", 'Lock Corner with White Facing Down'],
+      hi: ['सफ़ेद कोने को उसके सही स्लॉट के ऊपर रखें', "दाहिनी 4-चालें लगाएं (R U R' U')", 'कोने को सफ़ेद रंग नीचे करके लॉक करें'],
+      'hi-hinglish': ['व्हाइट कॉर्नर को सही स्लॉट के ऊपर लाएं', "राइट 4-मूव्स (R U R' U') लगाएं", 'कॉर्नर को व्हाइट नीचे करके लॉक करें'],
+      hinglish: ['White corner ko target slot ke upar layein', "Right 4-Moves (R U R' U') lagayein", 'Corner ko white bottom par lock karein'],
     },
-    algorithms: ['Sexy Move (R U R\' U\')', 'Left Sexy Move (L\' U\' L U)', 'Direct Slotting'],
+    algorithms: ["J Perm Right 4-Moves (R U R' U')", "J Perm Left 4-Moves (L' U' L U)", 'Corner Extraction Trigger'],
     reasons: {
       en: (move) => {
-        if (move === 'R') return 'Lift the right slot upward to receive the corner piece.';
-        if (move === 'U') return 'Rotate the top layer to flick the corner piece directly into the open slot.';
-        if (move === "R'") return 'Bring the right side back down to lock the corner into the white first layer.';
-        if (move === "U'") return 'Reset the top layer to maintain alignment and preserve the white cross.';
-        return 'Position the white corner piece precisely above its corresponding target slot.';
+        if (move === 'R') return "Lift the right slot upward to receive the corner piece (J Perm Right 4-Moves).";
+        if (move === 'U') return "Flick the top layer with your right index finger to push the corner into the open slot.";
+        if (move === "R'") return "Pull the right side down to lock the white corner into the first layer.";
+        if (move === "U'") return "Push the top layer back with your left index finger to maintain alignment.";
+        return "Position the white corner piece precisely above its target slot.";
       },
       hi: (move) => {
-        if (move === 'R') return 'दाहिनी ओर को ऊपर उठाएं ताकि कॉर्नर को स्लॉट में डाला जा सके।';
-        if (move === 'U') return 'ऊपरी परत को घुमाकर कॉर्नर को खुले हुए स्लॉट में ले आएं।';
-        if (move === "R'") return 'दाहिनी ओर को वापस नीचे लाकर कॉर्नर को सफ़ेद परत में सुरक्षित करें।';
-        if (move === "U'") return 'ऊपरी परत को रीसेट करें ताकि सफ़ेद क्रॉस सुरक्षित रहे।';
-        return 'सफ़ेद कोने को उसके सही स्लॉट के ठीक ऊपर लाएं।';
+        if (move === 'R') return "दाहिनी ओर को ऊपर उठाएं ताकि कॉर्नर को स्लॉट में डाला जा सके (4-चालें)।";
+        if (move === 'U') return "ऊपरी परत को घुमाकर कॉर्नर को खुले हुए स्लॉट में ले आएं।";
+        if (move === "R'") return "दाहिनी ओर को वापस नीचे लाकर कॉर्नर को सफ़ेद परत में सुरक्षित करें।";
+        if (move === "U'") return "ऊपरी परत को वापस रीसेट करें ताकि संरेखण बना रहे।";
+        return "सफ़ेद कोने को उसके सही स्लॉट के ठीक ऊपर लाएं।";
       },
       'hi-hinglish': (move) => {
-        if (move === 'R') return 'राइट साइड को ऊपर उठाएं ताकि कॉर्नर स्लॉट में जा सके।';
-        if (move === 'U') return 'टॉप लेयर को फ्लिक करके कॉर्नर को स्लॉट में इन्सर्ट करें।';
-        if (move === "R'") return 'राइट साइड को नीचे खींचकर कॉर्नर को पहली लेयर में लॉक करें।';
-        if (move === "U'") return 'टॉप लेयर को रीसेट करें ताकि व्हाइट क्रॉस सुरक्षित रहे।';
-        return 'व्हाइट कॉर्नर को उसके टारगेट स्लॉट के ऊपर सेट करें।';
+        if (move === 'R') return "राइट साइड को ऊपर उठाएं ताकि कॉर्नर स्लॉट में जा सके (4-मूव्स)।";
+        if (move === 'U') return "टॉप लेयर को फ्लिक करके कॉर्नर को स्लॉट में इन्सर्ट करें।";
+        if (move === "R'") return "राइट साइड को नीचे खींचकर कॉर्नर को पहली लेयर में लॉक करें।";
+        if (move === "U'") return "टॉप लेयर को रीसेट करें ताकि बाकी क्यूब सेफ रहे।";
+        return "व्हाइट कॉर्नर को उसके टारगेट स्लॉट के ऊपर सेट करें।";
       },
       hinglish: (move) => {
-        if (move === 'R') return 'Right side ko lift karein taaki corner slot mein place ho sake.';
-        if (move === 'U') return 'Top layer ko flick karke corner ko open slot mein insert karein.';
-        if (move === "R'") return 'Right side ko wapas neeche lock karein corner ko first layer mein fix karne ke liye.';
-        if (move === "U'") return 'Top layer ko reset karein taaki white cross intact rahe.';
-        return 'White corner ko target slot ke theek upar position karein.';
+        if (move === 'R') return "Right side ko lift karein taaki corner slot mein place ho sake (Right 4-moves).";
+        if (move === 'U') return "Top layer ko flick karke corner ko open slot mein insert karein.";
+        if (move === "R'") return "Right side ko wapas neeche lock karein corner ko first layer mein fix karne ke liye.";
+        if (move === "U'") return "Top layer ko reset karein taaki alignment intact rahe.";
+        return "White corner ko target slot ke theek upar position karein.";
       },
     },
     tips: {
-      en: 'Tip: The 4-move sequence R U R\' U\' (the "Sexy Move") is the core building block of cubing. Repeating it 1 to 5 times solves any corner.',
-      hi: 'सुझाव: 4 चालों का अनुक्रम R U R\' U\' (सेक्सी मूव) क्यूबिंग का मूल आधार है। इसे 1 से 5 बार दोहराने पर कोना सही बैठ जाता है।',
-      'hi-hinglish': 'टिप: R U R\' U\' (सेक्सी मूव) क्यूबिंग का सबसे ज़रूरी फॉर्मूला है। इसे 1 से 5 बार लगाने से कॉर्नर सही दिशा में बैठ जाता है।',
-      hinglish: 'Tip: 4-move formula R U R\' U\' (Sexy Move) cubing ka main foundation hai. Ise 1 se 5 baar repeat karne par corner solve ho jata hai.',
+      en: "J Perm Tip (1:44): The 4-move sequence (R U R' U') is the fundamental building block of cubing. Put the corner above where it needs to go, repeat R U R' U' 1 to 5 times until white is on the bottom. If a corner is stuck in the bottom layer, do the 4-moves once to pull it up!",
+      hi: "जे पर्म सुझाव (1:44): 4 चालों का अनुक्रम (R U R' U') क्यूब का मूल आधार है। कोने को सही स्लॉट के ऊपर रखें और 1 से 5 बार R U R' U' लगाएं जब तक सफ़ेद नीचे न आ जाए।",
+      'hi-hinglish': "J Perm टिप (1:44): R U R' U' (4-मूव्स) क्यूबिंग का मेन बेस है। कॉर्नर को स्लॉट के ऊपर रखें और 1 से 5 बार R U R' U' लगाएं। अगर कोई कॉर्नर नीचे गलत फंसा है, तो 4-मूव्स एक बार लगाकर उसे बाहर निकालें।",
+      hinglish: "J Perm Tip (1:44): 4-move formula (R U R' U') cubing ka sabse main building block hai. Corner ko slot ke upar rakhein aur 1 se 5 baar repeat karein jab tak white niche na jaye.",
     },
   },
 
-  // Stage 3: Second Layer Edges
+  // Step 3: Second Layer Edges (J Perm 4:00)
   {
     name: {
-      en: 'Stage 3: Second Layer (Middle Edges)',
-      hi: 'चरण 3: दूसरी परत (मध्य किनारे)',
-      'hi-hinglish': 'स्टेज 3: सेकंड लेयर (मिडिल एजेस)',
-      hinglish: 'Stage 3: Second Layer (Middle Edges)',
+      en: 'Step 3: Second Layer Edges (J Perm 4:00)',
+      hi: 'चरण 3: दूसरी परत के किनारे (जे पर्म 4:00)',
+      'hi-hinglish': 'स्टेज 3: सेकंड लेयर एजेस (J Perm 4:00)',
+      hinglish: 'Step 3: Second Layer Edges (J Perm 4:00)',
     },
     subStages: {
-      en: ['Find Non-Yellow Edge in Top Layer', 'Align with Front Center', 'Execute Layer Insertion Algorithm'],
-      hi: ['ऊपर की परत में बिना पीले रंग का किनारा ढूंढें', 'सामने वाले केंद्र से रंग मिलाएं', 'किनारे को मध्य परत में डालने का फॉर्मूला चलाएं'],
-      'hi-hinglish': ['टॉप लेयर में नॉन-येलो एज ढूंढें', 'फ्रंट सेंटर से मैच करें', 'मिडिल लेयर इन्सर्शन फॉर्मूला लगाएं'],
-      hinglish: ['Top layer mein non-yellow edge dhundein', 'Front center se match karein', 'Middle layer insertion algorithm apply karein'],
+      en: ['Find Top Edge Without Yellow', 'Match Front Color to Form a "T"', 'Turn Away & Apply 4-Moves to Slot'],
+      hi: ['ऊपर बिना पीले रंग का किनारा ढूंढें', 'सामने "T" आकार बनाने के लिए रंग मिलाएं', 'दूर घुमाएं और 4-चालों से स्लॉट में डालें'],
+      'hi-hinglish': ['टॉप पर बिना येलो वाला एज ढूंढें', 'फ्रंट कलर मैच करके "T" शेप बनाएं', 'दूर टर्न करके 4-मूव्स से इंसर्ट करें'],
+      hinglish: ['Top layer par non-yellow edge dhundein', 'Front color match karke vertical "T" banayein', 'Turn away karke 4-moves se slot mein dalein'],
     },
-    algorithms: ['Right Insertion: U R U\' R\' U\' F\' U F', 'Left Insertion: U\' L\' U L U F U\' F\''],
+    algorithms: ["Right Insertion: U + (R U R' U') + y' + (L' U' L U)", "Left Insertion: U' + (L' U' L U) + y + (R U R' U')"],
     reasons: {
       en: (move) => {
-        if (move.startsWith('U')) return 'Turn the top layer to steer the edge piece away from the target slot before pairing.';
-        if (move.startsWith('R') || move.startsWith('L')) return 'Elevate the target slot corner out of the first layer to form an F2L pair.';
-        if (move.startsWith('F')) return 'Open the front face to seamlessly insert the pair into the middle layer.';
-        return 'Execute edge insertion mechanics to fill the middle layer slot.';
+        if (move.startsWith('U')) return "Turn the top layer AWAY with the hand where the piece needs to go (J Perm rule).";
+        if (move.startsWith('R') || move.startsWith('L')) return "Elevate the corner from the bottom layer using that hand's 4-moves.";
+        if (move.startsWith('F')) return "Face the adjacent side and execute the opposite hand's 4-moves to seat the pair into the middle layer.";
+        return "Execute second layer edge insertion mechanics.";
       },
       hi: (move) => {
-        if (move.startsWith('U')) return 'ऊपरी परत को घुमाएं ताकि किनारे का टुकड़ा लक्ष्य स्लॉट से सही दूरी पर आ जाए।';
-        if (move.startsWith('R') || move.startsWith('L')) return 'लक्ष्य स्लॉट के कोने को बाहर निकालें ताकि वह किनारे के साथ जोड़ा बना सके।';
-        if (move.startsWith('F')) return 'सामने वाले फलक को खोलकर जोड़े को दूसरी परत में आसानी से बैठाएं।';
-        return 'मध्य परत के स्लॉट को भरने के लिए चाल चलाएं।';
+        if (move.startsWith('U')) return "ऊपरी परत को उस हाथ से दूर घुमाएं जिस तरफ टुकड़े को जाना है (जे पर्म नियम)।";
+        if (move.startsWith('R') || move.startsWith('L')) return "उस हाथ की 4-चालों का उपयोग करके कोने को बाहर निकालें और जोड़ा बनाएं।";
+        if (move.startsWith('F')) return "बगल वाले फलक की ओर घूमें और दूसरे हाथ की 4-चालों से किनारे को दूसरी परत में बैठाएं।";
+        return "दूसरी परत के किनारे को सही स्थान पर स्थापित करें।";
       },
       'hi-hinglish': (move) => {
-        if (move.startsWith('U')) return 'टॉप लेयर को घुमाकर एज पीस को स्लॉट से सही पोज़िशन पर लाएं।';
-        if (move.startsWith('R') || move.startsWith('L')) return 'स्लॉट के कॉर्नर को बाहर निकालें ताकि वह एज के साथ पेयर बन सके।';
-        if (move.startsWith('F')) return 'फ्रंट फेस को खोलकर इस पेयर को सेकंड लेयर में इंसर्ट करें।';
-        return 'सेकंड लेयर के एज को अपनी सही जगह पर सेट करें।';
+        if (move.startsWith('U')) return "टॉप लेयर को उस हाथ से दूर घुमाएं जिस तरफ पीस को जाना है (J Perm रूल)।";
+        if (move.startsWith('R') || move.startsWith('L')) return "उस हाथ के 4-मूव्स लगाकर कॉर्नर और एज का पेयर बनाएं।";
+        if (move.startsWith('F')) return "साइड फेस की तरफ घूमकर दूसरे हाथ के 4-मूव्स लगाएं और पेयर को सेकंड लेयर में इंसर्ट करें।";
+        return "सेकंड लेयर एज इन्सर्शन पूरा करें।";
       },
       hinglish: (move) => {
-        if (move.startsWith('U')) return 'Top layer ko move karein taaki edge target slot se sahi alignment mein aa jaye.';
-        if (move.startsWith('R') || move.startsWith('L')) return 'Slot corner ko elevate karein taaki edge ke saath pair ban sake.';
-        if (move.startsWith('F')) return 'Front face open karein aur pair ko smoothly middle layer mein insert karein.';
-        return 'Middle layer edge slotting complete karein.';
+        if (move.startsWith('U')) return "Top layer ko us haath se door ghumayein jis taraf piece ko jana hai (J Perm rule).";
+        if (move.startsWith('R') || move.startsWith('L')) return "Us hand ke 4-moves laga kar corner aur edge ka pair elevate karein.";
+        if (move.startsWith('F')) return "Adjacent side face karke opposite hand ke 4-moves se pair ko middle layer mein insert karein.";
+        return "Middle layer edge slotting complete karein.";
       },
     },
     tips: {
-      en: 'Tip: Look for edges on the top layer that do NOT contain yellow. Match the front color to make a vertical "T", then insert left or right.',
-      hi: 'सुझाव: ऊपरी परत में ऐसे किनारे देखें जिनमें पीला रंग न हो। सामने वाले रंग से मिलाकर "T" आकार बनाएं, फिर दाएं या बाएं डालें।',
-      'hi-hinglish': 'टिप: टॉप लेयर में वो एज देखें जिसमें येलो न हो। फ्रंट कलर से मैच करके "T" शेप बनाएं, फिर लेफ्ट या राइट इंसर्ट करें।',
-      hinglish: 'Tip: Top layer mein wo edges dhundein jinme yellow na ho. Front color se match karke vertical "T" banayein, phir insert karein.',
+      en: "J Perm Memory Trick (4:00): Find an edge on top without yellow. Match it to make a vertical 'T'. To insert RIGHT: Turn top away (U), do Right 4-moves, face the right side, do Left 4-moves! To insert LEFT: Turn top away (U'), do Left 4-moves, face the left side, do Right 4-moves!",
+      hi: "जे पर्म याद रखने की ट्रिक (4:00): बिना पीले रंग का किनारा चुनें। सामने 'T' बनाएं। यदि दाएं डालना है: ऊपर को दूर घुमाएं (U), दाएं 4-चालें लगाएं, दाईं ओर घूमें, बाएं 4-चालें लगाएं! बाएं डालना हो तो उल्टा करें।",
+      'hi-hinglish': "J Perm मेमोरी ट्रिक (4:00): बिना येलो वाला एज चुनें और 'T' शेप बनाएं। राइट डालना हो तो: ऊपर दूर घुमाएं (U), राइट 4-मूव्स लगाएं, राइट फेस की तरफ घूमें, लेफ्ट 4-मूव्स लगाएं!",
+      hinglish: "J Perm Memory Trick (4:00): Top par non-yellow edge dhund kar vertical 'T' banayein. Right insert: U turn away, Right 4-moves, face right, Left 4-moves! Left insert: U' turn away, Left 4-moves, face left, Right 4-moves!",
     },
   },
 
-  // Stage 4: Top Yellow Cross
+  // Step 4: Top Yellow Cross (J Perm 5:45)
   {
     name: {
-      en: 'Stage 4: Top Yellow Cross (OLL Edges)',
-      hi: 'चरण 4: ऊपरी पीला क्रॉस (पीले किनारे)',
-      'hi-hinglish': 'स्टेज 4: टॉप येलो क्रॉस (येलो एजेस)',
-      hinglish: 'Stage 4: Top Yellow Cross (OLL Edges)',
+      en: 'Step 4: Top Yellow Cross (J Perm 5:45)',
+      hi: 'चरण 4: ऊपरी पीला क्रॉस (जे पर्म 5:45)',
+      'hi-hinglish': 'स्टेज 4: टॉप येलो क्रॉस (J Perm 5:45)',
+      hinglish: 'Step 4: Top Yellow Cross (J Perm 5:45)',
     },
     subStages: {
-      en: ['Identify Dot / L-Shape / Line Pattern', 'Apply F R U R\' U\' F\'', 'Form Complete Yellow Cross'],
-      hi: ['बिंदु / एल-आकार / सीधी रेखा पहचानें', 'F R U R\' U\' F\' फॉर्मूला लगाएं', 'पूरा पीला क्रॉस बनाएं'],
-      'hi-hinglish': ['डॉट / L-शेप / लाइन पैटर्न पहचानें', 'F R U R\' U\' F\' फॉर्मूला लगाएं', 'कंप्लीट येलो क्रॉस तैयार करें'],
-      hinglish: ['Dot / L-shape / Line pattern identify karein', 'F R U R\' U\' F\' formula apply karein', 'Complete yellow cross banayein'],
+      en: ['Inspect Yellow Edges Pattern (Dot -> L-Shape -> Line)', "Turn F Clockwise & Apply Right 4-Moves (R U R' U')", 'Turn F Counter-Clockwise to Restore F2L'],
+      hi: ['पीले किनारों का पैटर्न पहचानें (बिंदु -> L-आकार -> रेखा)', "सामने (F) घुमाएं और दाहिनी 4-चालें (R U R' U') लगाएं", 'सामने (F\') वापस घुमाकर नीचे की परतें सुरक्षित करें'],
+      'hi-hinglish': ['येलो एजेस का पैटर्न देखें (डॉट -> L-शेप -> लाइन)', "F फेस को क्लॉकवाइज घुमाकर Right 4-Moves (R U R' U') लगाएं", 'F\' को वापस घुमाकर F2L सुरक्षित करें'],
+      hinglish: ['Yellow edges pattern dekhein (Dot -> L-Shape -> Line)', "F face turn karke Right 4-Moves (R U R' U') apply karein", 'F\' wapas turn karke F2L protect karein'],
     },
-    algorithms: ['F R U R\' U\' F\' (Fur-Ur-Ruf)', 'F U R U\' R\' F\''],
+    algorithms: ["F (R U R' U') F' (Front + Right 4-Moves + Front Back)"],
     reasons: {
       en: (move) => {
-        if (move === 'F') return 'Rotate the front face clockwise to bring the yellow edges into the working plane.';
-        if (move === 'R') return 'Lift the right side up to initiate the edge flip algorithm.';
-        if (move === 'U') return 'Turn top layer clockwise to swap the active edge position.';
-        if (move === "R'") return 'Restore the right column downward to protect the first two layers.';
-        if (move === "U'") return 'Restore the top layer backward to preserve alignment.';
-        if (move === "F'") return 'Turn the front face counter-clockwise to lock the newly flipped yellow edges in place.';
-        return 'Progress the yellow face towards forming a full yellow cross.';
+        if (move === 'F') return "Turn front face clockwise (F) to open the top layer for J Perm's 4-moves.";
+        if (move === 'R') return "Lift the right side up (Move 1 of J Perm's Right 4-Moves).";
+        if (move === 'U') return "Flick top layer clockwise (Move 2 of J Perm's Right 4-Moves).";
+        if (move === "R'") return "Pull right side down (Move 3 of J Perm's Right 4-Moves).";
+        if (move === "U'") return "Flick top layer counter-clockwise (Move 4 of J Perm's Right 4-Moves).";
+        if (move === "F'") return "Turn front face counter-clockwise (F') to lock the yellow cross while keeping F2L safe.";
+        return "Progress the yellow cross edges.";
       },
       hi: (move) => {
-        if (move === 'F') return 'सामने वाले फलक को दक्षिणावर्त घुमाएं ताकि पीले किनारे कार्य क्षेत्र में आएं।';
-        if (move === 'R') return 'दाहिनी ओर को ऊपर उठाकर किनारे को पलटने की प्रक्रिया शुरू करें।';
-        if (move === 'U') return 'ऊपरी परत को घुमाकर किनारे की स्थिति बदलें।';
-        if (move === "R'") return 'दाहिनी ओर को नीचे लाकर पहली दो परतों को सुरक्षित रखें।';
-        if (move === "U'") return 'ऊपरी परत को वापस लाकर संतुलन बनाए रखें।';
-        if (move === "F'") return 'सामने वाले फलक को वामावर्त घुमाकर पीले क्रॉस को सुरक्षित करें।';
-        return 'पीले क्रॉस को पूरा करने के लिए चाल चलाएं।';
+        if (move === 'F') return "सामने वाले फलक को दक्षिणावर्त (F) घुमाएं ताकि 4-चालों के लिए जगह बने।";
+        if (move === 'R') return "दाहिनी ओर को ऊपर उठाएं (4-चालों की चाल 1)।";
+        if (move === 'U') return "ऊपरी परत को आगे बढ़ाएं (4-चालों की चाल 2)।";
+        if (move === "R'") return "दाहिनी ओर को नीचे लाएं (4-चालों की चाल 3)।";
+        if (move === "U'") return "ऊपरी परत को वापस लाएं (4-चालों की चाल 4)।";
+        if (move === "F'") return "सामने वाले फलक को वामावर्त (F') घुमाकर पीले क्रॉस को सुरक्षित करें।";
+        return "पीले क्रॉस के किनारों को सही करें।";
       },
       'hi-hinglish': (move) => {
-        if (move === 'F') return 'फ्रंट फेस को क्लॉकवाइज घुमाएं ताकि येलो एजेस वर्किंग प्लेन में आ जाएं।';
-        if (move === 'R') return 'राइट साइड को ऊपर उठाएं ताकि एज फ्लिप शुरू हो सके।';
-        if (move === 'U') return 'टॉप लेयर को घुमाकर एक्टिव एज की पोज़िशन बदलें।';
-        if (move === "R'") return 'राइट साइड को वापस नीचे लाएं ताकि F2L सुरक्षित रहे।';
-        if (move === "U'") return 'टॉप लेयर को रीसेट करें।';
-        if (move === "F'") return 'फ्रंट फेस को एंटी-क्लॉकवाइज घुमाकर नए येलो क्रॉस को लॉक करें।';
-        return 'येलो क्रॉस बनाने के लिए स्टेप्स पूरे करें।';
+        if (move === 'F') return "फ्रंट फेस को क्लॉकवाइज (F) घुमाएं ताकि 4-मूव्स के लिए रास्ता खुले।";
+        if (move === 'R') return "राइट साइड को ऊपर उठाएं (Right 4-moves का मूव 1)।";
+        if (move === 'U') return "टॉप लेयर को क्लॉकवाइज पुश करें (Right 4-moves का मूव 2)।";
+        if (move === "R'") return "राइट साइड को वापस नीचे लाएं (Right 4-moves का मूव 3)।";
+        if (move === "U'") return "टॉप लेयर को रीसेट करें (Right 4-moves का मूव 4)।";
+        if (move === "F'") return "फ्रंट फेस को एंटी-क्लॉकवाइज (F') घुमाकर नए येलो क्रॉस को लॉक करें।";
+        return "येलो क्रॉस बनाने के लिए चालें पूरी करें।";
       },
       hinglish: (move) => {
-        if (move === 'F') return 'Front face ko clockwise turn karein taaki yellow edges working area mein aa sakein.';
-        if (move === 'R') return 'Right side lift karein edge flip sequence initiate karne ke liye.';
-        if (move === 'U') return 'Top layer rotate karein edge position swap karne ke liye.';
-        if (move === "R'") return 'Right side wapas down lock karein taaki first two layers intact rahein.';
-        if (move === "U'") return 'Top layer reverse karein alignment preserve karne ke liye.';
-        if (move === "F'") return 'Front face counter-clockwise turn karein yellow cross lock karne ke liye.';
-        return 'Top yellow cross complete karne ke liye moves execute karein.';
+        if (move === 'F') return "Front face ko clockwise (F) turn karein 4-moves ke liye space banane.";
+        if (move === 'R') return "Right side lift karein (Move 1 of Right 4-Moves).";
+        if (move === 'U') return "Top layer push karein (Move 2 of Right 4-Moves).";
+        if (move === "R'") return "Right side wapas down lock karein (Move 3 of Right 4-Moves).";
+        if (move === "U'") return "Top layer reset karein (Move 4 of Right 4-Moves).";
+        if (move === "F'") return "Front face counter-clockwise (F') turn karke yellow cross lock karein.";
+        return "Yellow cross edges progress karein.";
       },
     },
     tips: {
-      en: 'Tip: Pattern progression: Dot -> L-Shape (hold in top-left) -> Horizontal Line -> Yellow Cross. Use F R U R\' U\' F\'.',
-      hi: 'सुझाव: पैटर्न का क्रम: बिंदु -> L-आकार (ऊपर-बाएं रखें) -> क्षैतिज रेखा -> पीला क्रॉस। F R U R\' U\' F\' का उपयोग करें।',
-      'hi-hinglish': 'टिप: पैटर्न का फ्लो: डॉट -> L-शेप (टॉप-लेफ्ट रखें) -> हॉरिजॉन्टल लाइन -> येलो क्रॉस। F R U R\' U\' F\' यूज़ करें।',
-      hinglish: 'Tip: Progression order: Dot -> L-Shape (top-left rakhein) -> Horizontal Line -> Yellow Cross. Use F R U R\' U\' F\'.',
+      en: "J Perm Tip (5:45): Ignore the corners completely! Look only at yellow edges. Progression: Dot -> L-Shape (hold in top-left, 9 and 12 o'clock) -> Horizontal Line -> Yellow Cross. Formula: F (R U R' U') F'.",
+      hi: "जे पर्म सुझाव (5:45): कोनों को बिल्कुल अनदेखा करें! केवल किनारों को देखें। क्रम: बिंदु -> L-आकार (ऊपर-बाएं 9 और 12 बजे रखें) -> सीधी रेखा -> पीला क्रॉस। सूत्र: F (R U R' U') F'।",
+      'hi-hinglish': "J Perm टिप (5:45): कॉर्नर्स को इग्नोर करें! सिर्फ येलो एजेस देखें। प्रोग्रेशन: डॉट -> L-शेप (टॉप-लेफ्ट, 9 और 12 बजे रखें) -> हॉरिजॉन्टल लाइन -> क्रॉस। फॉर्मूला: F (R U R' U') F'।",
+      hinglish: "J Perm Tip (5:45): Corners ko bilkul ignore karein! Sirf yellow edges dekhein. Progression: Dot -> L-Shape (top-left 9 aur 12 o'clock rakhein) -> Horizontal Line -> Yellow Cross. Formula: F (R U R' U') F'.",
     },
   },
 
-  // Stage 5: Yellow Edges Alignment
+  // Step 5: Match Yellow Cross Side Colors (J Perm 6:28)
   {
     name: {
-      en: 'Stage 5: Yellow Edges Alignment (Sune)',
-      hi: 'चरण 5: पीले किनारों का मिलान (सून विधि)',
-      'hi-hinglish': 'स्टेज 5: येलो एजेस मैचिंग (सून फॉर्मूला)',
-      hinglish: 'Stage 5: Yellow Edges Alignment (Sune)',
+      en: 'Step 5: Match Yellow Cross Side Colors (J Perm 6:28)',
+      hi: 'चरण 5: पीले किनारों के रंग का मिलान (जे पर्म 6:28)',
+      'hi-hinglish': 'स्टेज 5: येलो क्रॉस साइड कलर्स मैचिंग (J Perm 6:28)',
+      hinglish: 'Step 5: Match Yellow Cross Side Colors (J Perm 6:28)',
     },
     subStages: {
-      en: ['Inspect Matching Edges', 'Hold Matching Edges in Back and Right', 'Execute Sune Algorithm (R U R\' U R U2 R\')'],
-      hi: ['मिलते हुए किनारों की जांच करें', 'मिले हुए किनारों को पीछे और दाएं रखें', 'सून फॉर्मूला (R U R\' U R U2 R\') लगाएं'],
-      'hi-hinglish': ['मैचिंग एजेस को चेक करें', 'मैच्ड एजेस को बैक और राइट में रखें', 'सून फॉर्मूला (R U R\' U R U2 R\') चलाएं'],
-      hinglish: ['Matching edges inspect karein', 'Matched edges ko back aur right mein rakhein', 'Sune algorithm (R U R\' U R U2 R\') apply karein'],
+      en: ['Turn Top Layer to Count Matching Side Colors', 'Hold One Matching Edge in Back & One on Right', "Apply Sune Algorithm: R U R' U R U2 R'"],
+      hi: ['ऊपरी परत को घुमाकर मिलने वाले रंगों की जांच करें', 'एक मिलते किनारे को पीछे और एक को दाएं रखें', "सून सूत्र लगाएं: R U R' U R U2 R'"],
+      'hi-hinglish': ['टॉप लेयर घुमाकर मैचिंग साइड कलर्स चेक करें', 'एक मैचिंग एज को बैक में और एक को राइट में रखें', "सून फॉर्मूला लगाएं: R U R' U R U2 R'"],
+      hinglish: ['Top layer turn karke matching side colors check karein', 'Ek matching edge ko back aur ek ko right mein rakhein', "Sune algorithm apply karein: R U R' U R U2 R'"],
     },
-    algorithms: ['Sune Algorithm (R U R\' U R U2 R\')'],
+    algorithms: ["Sune Algorithm (R U R' U R U2 R')"],
     reasons: {
       en: (move) => {
-        if (move === 'U2') return 'Perform a 180° top turn to cycle the 3 unsolved edges around while keeping the bottom intact.';
-        return 'Cycle top layer yellow edges clockwise so their side colors match the red, blue, orange, and green centers.';
+        if (move === 'U2') return "180° top turn in Sune to cycle the 3 remaining edges into their matching centers.";
+        return "Cycle yellow edges so their side colors match the red, blue, orange, and green centers.";
       },
       hi: (move) => {
-        if (move === 'U2') return 'ऊपरी परत को 180° घुमाएं ताकि 3 किनारे आपस में बदल जाएं और नीचे की परतें सुरक्षित रहें।';
-        return 'पीले किनारों को दक्षिणावर्त चक्रित करें ताकि उनके रंग लाल, नीले, नारंगी और हरे केंद्रों से मिल जाएं।';
+        if (move === 'U2') return "सून सूत्र में 180° ऊपरी मोड़ ताकि तीनों किनारे अपने केंद्रों से मिल जाएं।";
+        return "पीले किनारों को चक्रित करें ताकि उनके रंग चारों केंद्रों से मिल जाएं।";
       },
       'hi-hinglish': (move) => {
-        if (move === 'U2') return 'टॉप लेयर को 180° डबल टर्न दें ताकि 3 अनसॉल्व्ड एजेस आपस में बदल जाएं।';
-        return 'टॉप येलो एजेस को क्लॉकवाइज घुमाएं ताकि उनके साइड कलर्स चारों सेंटर्स से मैच हो जाएं।';
+        if (move === 'U2') return "सून में 180° टर्न ताकि 3 अनमैच्ड एजेस अपने सही सेंटर्स से मैच हो जाएं।";
+        return "येलो एजेस को घुमाएं ताकि उनके साइड कलर्स चारों सेंटर्स से मैच हो जाएं।";
       },
       hinglish: (move) => {
-        if (move === 'U2') return 'Top layer ko 180° double turn dein taaki 3 unsolved edges cycle ho sakein.';
-        return 'Top yellow edges ko clockwise cycle karein taaki side colors red, blue, orange, green centers se match ho jayein.';
+        if (move === 'U2') return "180° double turn in Sune taaki 3 remaining edges cycle hokar centers se match ho jayein.";
+        return "Top yellow edges ko cycle karein taaki side colors chaaro centers se match ho jayein.";
       },
     },
     tips: {
-      en: 'Tip: Rotate U until exactly two edges match adjacent centers. Hold them in the back and right, then perform R U R\' U R U2 R\'.',
-      hi: 'सुझाव: U को तब तक घुमाएं जब तक दो किनारे मिल न जाएं। उन्हें पीछे और दाएं रखें, फिर R U R\' U R U2 R\' चलाएं।',
-      'hi-hinglish': 'टिप: U को घुमाएं जब तक 2 एजेस सेंटर से मैच न हों। उन्हें बैक और राइट में रखें, फिर R U R\' U R U2 R\' लगाएं।',
-      hinglish: 'Tip: U ko rotate karein jab tak 2 edges match na ho. Unhe back aur right mein pakdein, phir R U R\' U R U2 R\' lagayein.',
+      en: "J Perm Memory Trick (6:28): Turn U until 2 edges match adjacent centers. Hold one in the BACK and one on the RIGHT. Do: Up, push away, down, push away, up, push all the way back, down! (R U R' U R U2 R'). Turn U once more to match all 4!",
+      hi: "जे पर्म याद रखने की ट्रिक (6:28): U को घुमाएं जब तक 2 किनारे न मिल जाएं। एक को पीछे और एक को दाएं रखें। चालें: ऊपर, दूर धक्का, नीचे, दूर धक्का, ऊपर, पूरा वापस, नीचे! (R U R' U R U2 R')। अंत में U घुमाकर चारों मिला लें।",
+      'hi-hinglish': "J Perm मेमोरी ट्रिक (6:28): U घुमाकर 2 मैचिंग एजेस ढूंढें। एक बैक में और एक राइट में रखें। ट्रिक: ऊपर, दूर, नीचे, दूर, ऊपर, पूरा वापस, नीचे! (R U R' U R U2 R')। फिर U घुमाकर चारों मैच करें।",
+      hinglish: "J Perm Memory Trick (6:28): Turn U until 2 edges match. Ek ko back aur ek ko right mein rakhein. Memory trick: Up, push away, down, push away, up, push all the way back, down! (R U R' U R U2 R'). Turn U once more to align all 4 colors.",
     },
   },
 
-  // Stage 6: Yellow Corners Permutation
+  // Step 6: Move Corners into Correct Place (J Perm 7:18)
   {
     name: {
-      en: 'Stage 6: Yellow Corners Permutation (Niklas)',
-      hi: 'चरण 6: पीले कोनों का सही स्थान पर आना (निक्लास विधि)',
-      'hi-hinglish': 'स्टेज 6: येलो कॉर्नर्स की सही पोज़िशन (निक्लास)',
-      hinglish: 'Stage 6: Yellow Corners Permutation (Niklas)',
+      en: 'Step 6: Move Corners into Correct Place (J Perm 7:18)',
+      hi: 'चरण 6: कोनों को सही स्थान पर लाना (जे पर्म 7:18)',
+      'hi-hinglish': 'स्टेज 6: कॉर्नर्स को सही जगह लाना (J Perm 7:18)',
+      hinglish: 'Step 6: Move Corners into Correct Place (J Perm 7:18)',
     },
     subStages: {
-      en: ['Find One Correct Corner', 'Hold Solved Corner in Front-Right', 'Execute Niklas: U R U\' L\' U R\' U\' L'],
-      hi: ['एक सही स्थान वाला कोना ढूंढें', 'उसे सामने-दाएं रखें', 'निक्लास फॉर्मूला लगाएं: U R U\' L\' U R\' U\' L'],
-      'hi-hinglish': ['एक सही पोज़िशन वाला कॉर्नर ढूंढें', 'उसे फ्रंट-राइट में रखें', 'निक्लास लगाएं: U R U\' L\' U R\' U\' L'],
-      hinglish: ['Ek correct position wala corner dhundein', 'Usko front-right mein rakhein', 'Niklas lagayein: U R U\' L\' U R\' U\' L'],
+      en: ['Locate a Correctly Positioned Corner', 'Hold Correct Corner in Front-Right', "Apply Niklas Algorithm: U R U' L' U R' U' L"],
+      hi: ['सही स्थान वाले कोने को ढूंढें', 'सही कोने को सामने-दाएं रखें', "निक्लास सूत्र लगाएं: U R U' L' U R' U' L"],
+      'hi-hinglish': ['सही पोज़िशन वाला कॉर्नर ढूंढें', 'सही कॉर्नर को फ्रंट-राइट में रखें', "निक्लास फॉर्मूला लगाएं: U R U' L' U R' U' L"],
+      hinglish: ['Correct position wala corner locate karein', 'Correct corner ko front-right mein rakhein', "Niklas algorithm apply karein: U R U' L' U R' U' L"],
     },
-    algorithms: ['Niklas Algorithm (U R U\' L\' U R\' U\' L)'],
+    algorithms: ["Niklas Algorithm: U R U' L' U R' U' L"],
     reasons: {
-      en: () => 'Cycle the remaining 3 corners until every corner piece is sitting between its 3 corresponding colored center faces.',
-      hi: () => 'शेष 3 कोनों को तब तक चक्रित करें जब तक कि प्रत्येक कोना अपने सही तीन रंगों के बीच न आ जाए।',
-      'hi-hinglish': () => 'बाकी 3 कॉर्नर्स को तब तक घुमाएं जब तक हर कॉर्नर अपने 3 सही कलर्स के बीच न पहुंच जाए।',
-      hinglish: () => 'Remaining 3 corners ko cycle karein jab tak har corner apne 3 correct colors ke beech na pahunch jaye.',
+      en: () => "Cycle the remaining 3 corners until every corner piece is sitting between its 3 corresponding colored centers.",
+      hi: () => "शेष 3 कोनों को तब तक चक्रित करें जब तक कि प्रत्येक कोना अपने सही तीन रंगों के बीच न आ जाए।",
+      'hi-hinglish': () => "बाकी 3 कॉर्नर्स को तब तक घुमाएं जब तक हर कॉर्नर अपने 3 सही कलर्स के बीच न पहुंच जाए।",
+      hinglish: () => "Remaining 3 corners ko cycle karein jab tak har corner apne 3 matching centers ke beech na aa jaye.",
     },
     tips: {
-      en: 'Tip: A corner is in the correct position if its colors match the 3 surrounding center faces, even if it is currently twisted!',
-      hi: 'सुझाव: एक कोना अपनी सही जगह पर माना जाता है यदि उसके तीन रंग आसपास के केंद्रों से मिलते हों, भले ही वह अभी मुड़ा हुआ हो!',
-      'hi-hinglish': 'टिप: अगर किसी कॉर्नर के तीनों रंग आसपास के सेंटर्स से मैच करते हैं तो वह सही जगह पर है, भले ही वह अभी ट्विस्टेड हो!',
-      hinglish: 'Tip: Corner sahi jagah par tab mana jata hai jab uske colors aas-paas ke 3 centers se match karein, chahe wo abhi twisted ho!',
+      en: "J Perm Memory Trick (7:18): A corner is correct if its 3 colors match surrounding centers, even if twisted! J Perm rhyme: Push top with right, right up; push top with left, left up; push top with right, right down; push top with left, left down! (U R U' L' U R' U' L).",
+      hi: "जे पर्म याद रखने की ट्रिक (7:18): कोना सही माना जाता है यदि उसके रंग आसपास के केंद्रों से मिलते हों, भले ही वह मुड़ा हो! ट्रिक: दाएं से धक्का, दायां ऊपर; बाएं से धक्का, बायां ऊपर; दाएं से धक्का, दायां नीचे; बाएं से धक्का, बायां नीचे! (U R U' L' U R' U' L)।",
+      'hi-hinglish': "J Perm ट्रिक (7:18): कॉर्नर सही जगह तब है जब उसके 3 कलर्स आसपास के सेंटर्स से मैच करें, चाहे वो ट्विस्टेड हो! ट्रिक: राइट से पुश, राइट ऊपर; लेफ्ट से पुश, लेफ्ट ऊपर; राइट से पुश, राइट नीचे; लेफ्ट से पुश, लेफ्ट नीचे! (U R U' L' U R' U' L)।",
+      hinglish: "J Perm Memory Trick (7:18): Corner correct tab hai jab uske colors 3 surrounding centers se match karein (twisted ho tab bhi!). Rhyme: Push top right, right up; push top left, left up; push top right, right down; push top left, left down! (U R U' L' U R' U' L).",
     },
   },
 
-  // Stage 7: Final Yellow Corners Orientation
+  // Step 7: Final Step - Orient Corners (J Perm 8:20 / &t=500s)
   {
     name: {
-      en: 'Stage 7: Final Yellow Corners Orientation (Finish)',
-      hi: 'चरण 7: पीले कोनों का अंतिम घुमाव और समापन',
-      'hi-hinglish': 'स्टेज 7: फाइनल येलो कॉर्नर्स ट्विस्ट और फिनिश',
-      hinglish: 'Stage 7: Final Yellow Corners Orientation (Finish)',
+      en: 'Step 7: Final Step - Orient Corners (J Perm 8:20 / &t=500s)',
+      hi: 'चरण 7: अंतिम चरण - कोनों को सीधा करना (जे पर्म 8:20 / &t=500s)',
+      'hi-hinglish': 'स्टेज 7: फाइनल स्टेप - कॉर्नर्स ओरिएंटेशन (J Perm 8:20 / &t=500s)',
+      hinglish: 'Step 7: Final Step - Orient Corners (J Perm 8:20 / &t=500s)',
     },
     subStages: {
-      en: ['Hold Unoriented Corner in Front-Right', 'Apply R\' D\' R D until Yellow Faces Up', 'Turn U to Next Corner and Repeat'],
-      hi: ['मुड़े हुए कोने को सामने-दाएं रखें', 'R\' D\' R D तब तक लगाएं जब तक पीला ऊपर न आ जाए', 'U घुमाकर अगले कोने पर जाएं'],
-      'hi-hinglish': ['अनसॉल्व्ड कॉर्नर को फ्रंट-राइट में रखें', 'R\' D\' R D लगाएं जब तक येलो ऊपर न आए', 'U घुमाकर नेक्स्ट कॉर्नर पर जाएं'],
-      hinglish: ['Unsolved corner ko front-right mein rakhein', 'R\' D\' R D lagayein jab tak yellow upar na aaye', 'U rotate karke next corner par jayein'],
+      en: ['Hold Yellow on Bottom with Unsolved Corner in Bottom-Right', "Repeat Right 4-Moves (R U R' U') until Yellow Faces Down", 'Turn Bottom Layer (D) to Next Corner & Repeat'],
+      hi: ['पीला रंग नीचे रखें और मुड़े कोने को नीचे-दाएं लाएं', "R U R' U' (राइट 4-चालें) दोहराएं जब तक पीला नीचे न आ जाए", 'निचली परत (D) घुमाकर अगले कोने पर जाएं और दोहराएं'],
+      'hi-hinglish': ['येलो को बॉटम पर रखें और अनसॉल्व्ड कॉर्नर को बॉटम-राइट में लाएं', "Right 4-Moves (R U R' U') लगाएं जब तक येलो नीचे न आ जाए", 'बॉटम लेयर (D) घुमाकर अगले कॉर्नर पर जाएं'],
+      hinglish: ['Yellow bottom par rakhein aur unsolved corner ko bottom-right layein', "Right 4-Moves (R U R' U') repeat karein jab tak yellow bottom na aaye", 'Bottom layer (D) turn karke agle corner par jayein'],
     },
-    algorithms: ['Corner Twist Formula (R\' D\' R D)'],
+    algorithms: ["J Perm Right 4-Moves (R U R' U')", "Bottom Layer D-Turn Alignment"],
     reasons: {
       en: (move) => {
-        if (move === "R'") return 'Pull the right side down to begin corner twist cycle.';
-        if (move === "D'") return 'Sweep bottom layer counter-clockwise to protect the cross.';
-        if (move === 'R') return 'Push right side back up.';
-        if (move === 'D') return 'Restore bottom layer (crucial step, never forget this D turn!).';
-        if (move.startsWith('U')) return 'Turn only the U layer to bring the next twisted corner into the front-right slot.';
-        return 'Final alignment to solve the Rubik\'s Cube!';
+        if (move === 'R') return "Lift right side to execute J Perm's Right 4-Moves (R U R' U') to twist the bottom-right corner.";
+        if (move === 'U') return "Turn top layer as part of J Perm's Right 4-Moves sequence.";
+        if (move === "R'") return "Pull right side down to restore the right column.";
+        if (move === "U'") return "Reset top layer to complete the 4-move corner twist cycle.";
+        if (move.startsWith('D')) return "CRITICAL (J Perm &t=500s): Turn ONLY the bottom layer (D) to bring the next unsolved corner into the bottom-right slot! Never turn the whole cube!";
+        return "Final bottom alignment to 100% solve the Rubik's Cube!";
       },
       hi: (move) => {
-        if (move === "R'") return 'दाहिनी ओर को नीचे लाएं ताकि कोने को मोड़ने की क्रिया शुरू हो।';
-        if (move === "D'") return 'निचली परत को वामावर्त घुमाकर क्रॉस को सुरक्षित रखें।';
-        if (move === 'R') return 'दाहिनी ओर को वापस ऊपर ले जाएं।';
-        if (move === 'D') return 'निचली परत को वापस लाएं (यह D मोड़ बहुत महत्वपूर्ण है!)।';
-        if (move.startsWith('U')) return 'केवल U परत को घुमाकर अगले मुड़े हुए कोने को सामने-दाएं स्लॉट में लाएं।';
-        return 'क्यूब को पूरी तरह हल करने के लिए अंतिम चाल!';
+        if (move === 'R') return "दाहिनी ओर को ऊपर उठाएं (जे पर्म की 4-चालें R U R' U' द्वारा नीचे-दाएं कोने को मोड़ने के लिए)।";
+        if (move === 'U') return "ऊपरी परत को घुमाएं (4-चालों का भाग)।";
+        if (move === "R'") return "दाहिनी ओर को वापस नीचे लाएं।";
+        if (move === "U'") return "ऊपरी परत को रीसेट करके 4-चालों का चक्र पूरा करें।";
+        if (move.startsWith('D')) return "अति महत्वपूर्ण (जे पर्म &t=500s): केवल निचली परत (D) को घुमाकर अगले मुड़े हुए कोने को नीचे-दाएं लाएं! पूरे क्यूब को कभी न घुमाएं!";
+        return "क्यूब को 100% पूरा हल करने के लिए अंतिम चाल!";
       },
       'hi-hinglish': (move) => {
-        if (move === "R'") return 'राइट साइड को नीचे खींचें कॉर्नर ट्विस्ट शुरू करने के लिए।';
-        if (move === "D'") return 'बॉटम लेयर को एंटी-क्लॉकवाइज घुमाएं ताकि क्रॉस सेफ रहे।';
-        if (move === 'R') return 'राइट साइड को वापस ऊपर ले जाएं।';
-        if (move === 'D') return 'बॉटम लेयर को वापस लाएं (यह D टर्न कभी न भूलें!)।';
-        if (move.startsWith('U')) return 'सिर्फ U लेयर को घुमाकर अगले ट्विस्टेड कॉर्नर को फ्रंट-राइट में लाएं।';
-        return 'क्यूब को पूरी तरह सॉल्व करने के लिए फाइनल फिनिश!';
+        if (move === 'R') return "राइट साइड को ऊपर उठाएं (J Perm के Right 4-Moves R U R' U' से कॉर्नर ट्विस्ट करने के लिए)।";
+        if (move === 'U') return "टॉप लेयर को घुमाएं (4-मूव्स का हिस्सा)।";
+        if (move === "R'") return "राइट साइड को वापस नीचे लाएं।";
+        if (move === "U'") return "टॉप लेयर को रीसेट करके 4-मूव्स साइकिल पूरी करें।";
+        if (move.startsWith('D')) return "बहुत ज़रूरी (J Perm &t=500s): केवल बॉटम लेयर (D) घुमाकर अगले अनसॉल्व्ड कॉर्नर को बॉटम-राइट में लाएं! पूरे क्यूब को कभी मत घुमाना!";
+        return "क्यूब को 100% सॉल्व करने के लिए फाइनल अलाइनमेंट!";
       },
       hinglish: (move) => {
-        if (move === "R'") return 'Right side neeche pull karein corner twist cycle start karne ke liye.';
-        if (move === "D'") return 'Bottom layer counter-clockwise sweep karein cross protect karne ke liye.';
-        if (move === 'R') return 'Right side wapas up push karein.';
-        if (move === "D") return 'Bottom layer restore karein (ye D turn bohot zaroori hai, kabhi skip na karein!).';
-        if (move.startsWith('U')) return 'Sirf U layer turn karein agle twisted corner ko front-right mein laane ke liye.';
-        return 'Cube ko 100% solve karne ke liye final alignment!';
+        if (move === 'R') return "Right side lift karein (J Perm Right 4-Moves R U R' U' se bottom-right corner twist karne ke liye).";
+        if (move === 'U') return "Top layer turn karein (part of Right 4-Moves).";
+        if (move === "R'") return "Right side wapas down lock karein.";
+        if (move === "U'") return "Top layer reset karein 4-moves cycle complete karne ke liye.";
+        if (move.startsWith('D')) return "CRITICAL (J Perm &t=500s): Sirf BOTTOM layer (D) turn karein next unsolved corner ko bottom-right slot mein laane ke liye! Poora cube kabhi mat ghumana!";
+        return "Cube ko 100% solve karne ke liye final alignment!";
       },
     },
     tips: {
-      en: 'Tip: Do NOT rotate the entire cube! Keep holding the cube in the exact same orientation. Only turn the U layer to bring the next corner into place.',
-      hi: 'सुझाव: पूरा क्यूब कभी न घुमाएं! केवल ऊपरी परत (U) को घुमाकर अगले कोने को सामने लाएं। नीचे की परतें अपने आप ठीक हो जाएंगी।',
-      'hi-hinglish': 'टिप: पूरे क्यूब को हाथ में न घुमाएं! क्यूब को उसी पोज़िशन में पकड़े रहें और सिर्फ U लेयर घुमाकर अगला कॉर्नर सामने लाएं।',
-      hinglish: 'Tip: Poora cube haath mein mat ghumayein! Same orientation pakde rahein aur sirf U layer turn karke agla corner front-right mein layein.',
+      en: "J Perm (&t=500s) Golden Rule: Hold yellow on the bottom! The rest of the cube will look scrambled while doing R U R' U', but DO NOT PANIC! Only turn the bottom layer (D) to bring each corner to the bottom-right. Once all corners are done, the whole cube automatically restores!",
+      hi: "जे पर्म (&t=500s) का स्वर्णिम नियम: पीला रंग नीचे रखें! R U R' U' करते समय बाकी क्यूब बिगड़ा हुआ दिखेगा, लेकिन घबराएं नहीं! पूरे क्यूब को कभी न घुमाएं, केवल नीचे की परत (D) घुमाकर अगले कोने को सामने-दाएं लाएं। सभी कोने ठीक होते ही पूरा क्यूब अपने आप ठीक हो जाएगा!",
+      'hi-hinglish': "J Perm (&t=500s) गोल्डन रूल: येलो को नीचे रखें! R U R' U' करते वक्त बाकी क्यूब बिखरा हुआ लगेगा, पर पैनिक न करें! पूरे क्यूब को मत घुमाएं, सिर्फ बॉटम लेयर (D) घुमाकर हर कॉर्नर को बॉटम-राइट में लाएं। सारे कॉर्नर्स होते ही पूरा क्यूब ऑटोमैटिकली ठीक हो जाएगा!",
+      hinglish: "J Perm (&t=500s) Golden Rule: Yellow ko bottom par rakhein! R U R' U' lagate waqt baki cube scrambled lagega, par panic mat karein! Poora cube mat ghumayein, sirf bottom layer (D) turn karke next corner ko bottom-right layein. Last corner ke baad cube automatically 100% solve ho jayega!",
     },
   },
 ];

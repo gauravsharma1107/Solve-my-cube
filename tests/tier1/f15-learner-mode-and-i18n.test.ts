@@ -139,4 +139,25 @@ describe('Tier 1: F15 - Learner Mode & Multi-Language Support', () => {
     assert.strictEqual(t('nav_solver', 'hi'), '3D सॉल्वर');
     assert.strictEqual(t('nav_solver', 'hi-hinglish'), '3D सॉल्वर');
   });
+
+  it('F15-8: Learner LBL strictly aligns with J Perm 3x3 beginner method (7Ron6MN45LY &t=500s)', () => {
+    const scrambled = createScrambledCube(sampleScramble);
+    const steps = solveWithHumanLBL(scrambled, 'en');
+
+    // Verify J Perm method stages and terminology
+    const phases = steps.map(s => s.phase || '');
+    assert.ok(phases.some(p => p.includes('J Perm') || p.includes('Step 1')), 'Must mention J Perm steps');
+    
+    // Check algorithm names for 4-moves
+    const algs = steps.map(s => s.algorithmName || '');
+    assert.ok(algs.some(a => a.includes('4-Moves') || a.includes('Swing') || a.includes('Sune') || a.includes('Niklas')), 'Must include J Perm 4-moves and beginner algorithms');
+
+    // Check Step 7 (Timestamp 500s / 8:20)
+    const step7Steps = steps.filter(s => s.phase?.includes('Step 7') || s.phase?.includes('Orient Corners'));
+    if (step7Steps.length > 0) {
+      assert.ok(step7Steps[0].phase?.includes('&t=500s') || step7Steps[0].phase?.includes('8:20'), 'Step 7 must reference J Perm 8:20 (&t=500s)');
+      assert.ok(step7Steps[0].tip?.includes('yellow on the bottom') || step7Steps[0].tip?.includes('Golden Rule'), 'Step 7 tip must emphasize J Perm golden rule');
+    }
+  });
 });
+

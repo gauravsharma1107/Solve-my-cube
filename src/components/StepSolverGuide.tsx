@@ -4,7 +4,7 @@ import {
   Play, Pause, SkipBack, SkipForward, RotateCcw, 
   Volume2, VolumeX, Mic, MicOff,
   Sparkles, Award, AlertTriangle, Compass, CheckCircle2, RotateCw, RefreshCw,
-  GraduationCap, Lightbulb, BookOpen
+  GraduationCap, Lightbulb, BookOpen, Video, ExternalLink
 } from 'lucide-react';
 import type { CubeState, SolutionStep, SolverMode, Face, LearnerMethod } from '../solver/cubeTypes';
 import { FACE_NAMES } from '../solver/cubeTypes';
@@ -357,7 +357,7 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
             <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-300">Method:</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => onSelectLearnerMethod && onSelectLearnerMethod('lbl')}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
@@ -378,6 +378,22 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
             >
               {t('submethod_cfop', language)}
             </button>
+
+            {learnerMethod === 'lbl' && (
+              <a
+                href={activeStep?.phase?.includes('Step 7') || activeStep?.phase?.includes('चरण 7') || activeStep?.phase?.includes('स्टेज 7')
+                  ? 'https://www.youtube.com/watch?v=7Ron6MN45LY&t=500s'
+                  : 'https://www.youtube.com/watch?v=7Ron6MN45LY'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden xs:flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600/20 text-red-300 hover:bg-red-600/30 border border-red-500/30 transition-colors ml-1"
+                title={t('watch_jperm_tutorial', language)}
+              >
+                <Video className="w-3 h-3 text-red-400" />
+                <span>{activeStep?.phase?.includes('Step 7') || activeStep?.phase?.includes('चरण 7') || activeStep?.phase?.includes('स्टेज 7') ? 'J Perm (8:20)' : 'J Perm Tutorial'}</span>
+                <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+              </a>
+            )}
           </div>
         </div>
       )}
@@ -472,8 +488,28 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
 
               {/* Mobile Educational Reason Snippet in Learner Mode */}
               {activeStep.reason && (
-                <div className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-neutral-200 flex items-start gap-1.5 leading-snug">
-                  <Lightbulb className="w-3 h-3 text-amber-300 flex-shrink-0 mt-0.5" />
+                <div className="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] text-neutral-200 flex flex-col gap-1 leading-snug">
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1 font-bold text-white text-[10px] truncate">
+                      <Lightbulb className="w-3 h-3 text-amber-300 flex-shrink-0" />
+                      <span className="truncate">{activeStep.algorithmName || t('why_this_move', language)}</span>
+                    </div>
+                    {solverMode === 'learner' && learnerMethod === 'lbl' && (
+                      <a
+                        href={activeStep.phase?.includes('Step 7') || activeStep.phase?.includes('चरण 7') || activeStep.phase?.includes('स्टेज 7')
+                          ? 'https://www.youtube.com/watch?v=7Ron6MN45LY&t=500s'
+                          : 'https://www.youtube.com/watch?v=7Ron6MN45LY'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-0.5 text-[9px] font-bold text-red-400 flex-shrink-0 bg-red-950/30 border border-red-500/20 px-1.5 py-0.5 rounded"
+                        title={t('watch_jperm_tutorial', language)}
+                      >
+                        <Video className="w-2.5 h-2.5" />
+                        <span>{activeStep.phase?.includes('Step 7') || activeStep.phase?.includes('चरण 7') || activeStep.phase?.includes('स्टेज 7') ? '8:20' : 'J Perm'}</span>
+                        <ExternalLink className="w-2 h-2" />
+                      </a>
+                    )}
+                  </div>
                   <span className="line-clamp-2">
                     {activeStep.reason}
                   </span>
@@ -567,15 +603,37 @@ export const StepSolverGuide: React.FC<StepSolverGuideProps> = ({
                         </span>
                       )}
                     </div>
-                    {activeStep.subStage && (
-                      <span className="text-[10px] font-mono text-neutral-400">
-                        {activeStep.subStage}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {activeStep.subStage && (
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          {activeStep.subStage}
+                        </span>
+                      )}
+                      {solverMode === 'learner' && learnerMethod === 'lbl' && (
+                        <a
+                          href={activeStep.phase?.includes('Step 7') || activeStep.phase?.includes('चरण 7') || activeStep.phase?.includes('स्टेज 7')
+                            ? 'https://www.youtube.com/watch?v=7Ron6MN45LY&t=500s'
+                            : 'https://www.youtube.com/watch?v=7Ron6MN45LY'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[10px] font-bold text-red-400 hover:text-red-300 bg-red-950/40 border border-red-500/30 px-2 py-0.5 rounded-md transition-colors"
+                          title={t('watch_jperm_tutorial', language)}
+                        >
+                          <Video className="w-3 h-3 text-red-400" />
+                          <span>{activeStep.phase?.includes('Step 7') || activeStep.phase?.includes('चरण 7') || activeStep.phase?.includes('स्टेज 7') ? 'J Perm (8:20)' : 'J Perm Video'}</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-neutral-200 leading-relaxed font-sans">
                     {activeStep.reason}
                   </p>
+                  {(activeStep.phase?.includes('Step 7') || activeStep.phase?.includes('चरण 7') || activeStep.phase?.includes('स्टेज 7')) && (
+                    <div className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] font-medium text-amber-200 flex items-center gap-1.5 leading-snug">
+                      <span className="font-bold text-amber-400">⚡ {t('step7_final_warning', language)}</span>
+                    </div>
+                  )}
                   {activeStep.tip && (
                     <div className="mt-1 pt-1.5 border-t border-white/10 text-[11px] text-neutral-400 flex items-start gap-1 leading-snug">
                       <span className="text-amber-300 flex-shrink-0">★</span>
