@@ -71,6 +71,7 @@ describe('Tier 1: F15 - Learner Mode & Multi-Language Support', () => {
     const steps = solveWithHumanLBL(scrambled, 'en');
 
     assert.ok(steps.length > 0, 'LBL solver must produce solution steps');
+    assert.ok(steps.length > 20, 'LBL solver must produce authentic human move count (> 20 moves)');
 
     // Verify educational fields
     for (const step of steps) {
@@ -94,6 +95,7 @@ describe('Tier 1: F15 - Learner Mode & Multi-Language Support', () => {
     const steps = solveWithHumanCFOP(scrambled, 'en');
 
     assert.ok(steps.length > 0, 'CFOP solver must produce solution steps');
+    assert.ok(steps.length > 20, 'CFOP solver must produce authentic human move count (> 20 moves)');
 
     const phases = steps.map(s => s.phase || '');
     assert.ok(

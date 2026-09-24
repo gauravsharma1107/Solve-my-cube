@@ -1,7 +1,9 @@
 import type { CubeState, SolutionStep, LearnerMethod } from './cubeTypes';
 import type { AppLanguage } from '../utils/i18n';
+import Cube from './cubeLib/cube.js';
 import { solveWithKociemba } from './kociemba';
-import { applyMove } from './moveParser';
+import { cubeStateToKociembaString, parseMove, MOVE_DETAILS, isCubeSolved } from './moveParser';
+import { simplifyMoves } from './moveOptimizer';
 import { getLocalizedAnalogy } from '../utils/i18n';
 
 interface HumanStageDef {
@@ -477,42 +479,380 @@ const CFOP_STAGES: HumanStageDef[] = [
   },
 ];
 
+// ==========================================
+// AUTHENTIC HUMAN STATE-MACHINE ENGINE
+// ==========================================
+
+function solveCross(c: any, moves: string[]): void {
+  const dSlotForTarget: Record<number, number> = { 1: 5, 0: 4, 2: 6, 3: 7 };
+  const faceForTarget: Record<number, string> = { 1: 'F', 0: 'R', 2: 'L', 3: 'B' };
+  const flipAlgForTarget: Record<number, string> = {
+    1: "F R' D' R F2",
+    0: "R B' D' B R2",
+    2: "L F' D' F L2",
+    3: "B L' D' L B2"
+  };
+
+  function doMove(m: string): void {
+    if (!m) return;
+    for (const p of m.trim().split(/\s+/)) {
+      if (p) {
+        c.move(p);
+        moves.push(p);
+      }
+    }
+  }
+
+  function alignDToSlot(targetEdge: number, targetDSlot: number): void {
+    const curSlot = c.ep.indexOf(targetEdge);
+    if (curSlot === targetDSlot) return;
+    const dOrder = [4, 5, 6, 7];
+    const curIdx = dOrder.indexOf(curSlot);
+    const targetIdx = dOrder.indexOf(targetDSlot);
+    const dSteps = (curIdx - targetIdx + 4) % 4;
+    if (dSteps === 1) doMove("D");
+    else if (dSteps === 2) doMove("D2");
+    else if (dSteps === 3) doMove("D'");
+  }
+
+  for (const targetEdge of [1, 0, 2, 3]) {
+    const targetSlot = targetEdge;
+    if (c.ep[targetSlot] === targetEdge && c.eo[targetSlot] === 0) continue;
+    if (c.ep[targetSlot] === targetEdge && c.eo[targetSlot] === 1) {
+      doMove(flipAlgForTarget[targetSlot]);
+      continue;
+    }
+
+    let curSlot = c.ep.indexOf(targetEdge);
+    if (curSlot === 1) doMove("F2");
+    else if (curSlot === 0) doMove("R2");
+    else if (curSlot === 2) doMove("L2");
+    else if (curSlot === 3) doMove("B2");
+    else if (curSlot === 8) doMove("R' D' R");
+    else if (curSlot === 9) doMove("L D L'");
+    else if (curSlot === 10) doMove("L' D' L");
+    else if (curSlot === 11) doMove("R D R'");
+
+    const targetDSlot = dSlotForTarget[targetSlot];
+    alignDToSlot(targetEdge, targetDSlot);
+
+    const face = faceForTarget[targetSlot];
+    doMove(`${face}2`);
+
+    if (c.eo[targetSlot] === 1) {
+      doMove(flipAlgForTarget[targetSlot]);
+    }
+  }
+}
+
+function solveCorners(c: any, moves: string[]): void {
+  const dSlotForTarget: Record<number, number> = { 0: 4, 1: 5, 2: 6, 3: 7 };
+  const triggerForSlot: Record<number, string> = {
+    0: "R' D' R D",
+    1: "F' D' F D",
+    2: "L' D' L D",
+    3: "B' D' B D"
+  };
+
+  function doMove(m: string): void {
+    if (!m) return;
+    for (const p of m.trim().split(/\s+/)) {
+      if (p) {
+        c.move(p);
+        moves.push(p);
+      }
+    }
+  }
+
+  function alignDCornerToSlot(corner: number, targetDSlot: number): void {
+    const curSlot = c.cp.indexOf(corner);
+    if (curSlot === targetDSlot) return;
+    const dOrder = [4, 5, 6, 7];
+    const curIdx = dOrder.indexOf(curSlot);
+    const targetIdx = dOrder.indexOf(targetDSlot);
+    const dSteps = (curIdx - targetIdx + 4) % 4;
+    if (dSteps === 1) doMove("D");
+    else if (dSteps === 2) doMove("D2");
+    else if (dSteps === 3) doMove("D'");
+  }
+
+  for (const corner of [0, 1, 2, 3]) {
+    if (c.cp[corner] === corner && c.co[corner] === 0) continue;
+
+    const curSlot = c.cp.indexOf(corner);
+    if (curSlot < 4) {
+      doMove(triggerForSlot[curSlot]);
+    }
+
+    const targetDSlot = dSlotForTarget[corner];
+    alignDCornerToSlot(corner, targetDSlot);
+
+    const trigger = triggerForSlot[corner];
+    let safety = 0;
+    while ((c.cp[corner] !== corner || c.co[corner] !== 0) && safety < 6) {
+      doMove(trigger);
+      safety++;
+    }
+  }
+}
+
+function solveMiddleEdges(c: any, moves: string[]): void {
+  const insertions: Record<number, string[]> = {
+    8: ["D' R' D R D F D' F'", "D F D' F' D' R' D R"],
+    9: ["D' F' D F D L D' L'", "D L D' L' D' F' D F"],
+    10: ["D' L' D L D B D' B'", "D B D' B' D' L' D L"],
+    11: ["D' B' D B D R D' R'", "D R D' R' D' B' D B"]
+  };
+
+  function doMove(m: string): void {
+    if (!m) return;
+    for (const p of m.trim().split(/\s+/)) {
+      if (p) {
+        c.move(p);
+        moves.push(p);
+      }
+    }
+  }
+
+  for (const edge of [8, 9, 10, 11]) {
+    if (c.ep[edge] === edge && c.eo[edge] === 0) continue;
+
+    const curSlot = c.ep.indexOf(edge);
+    if (curSlot >= 8) {
+      doMove(insertions[curSlot][0]);
+    }
+
+    let found: { dt: string; alg: string } | null = null;
+    const dTurns = ["", "D", "D2", "D'"];
+    for (const dt of dTurns) {
+      for (const alg of insertions[edge]) {
+        const testCube = c.clone();
+        if (dt) testCube.move(dt);
+        testCube.move(alg);
+        if (testCube.ep[edge] === edge && testCube.eo[edge] === 0) {
+          found = { dt, alg };
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    if (!found) break;
+
+    if (found.dt) doMove(found.dt);
+    doMove(found.alg);
+  }
+}
+
+function solveYellowCross(c: any, moves: string[]): void {
+  function doMove(m: string): void {
+    if (!m) return;
+    for (const p of m.trim().split(/\s+/)) {
+      if (p) {
+        c.move(p);
+        moves.push(p);
+      }
+    }
+  }
+
+  const dEdges = [4, 5, 6, 7];
+  if (dEdges.every(s => c.eo[s] === 0)) return;
+
+  const algs = ["F' R' D' R D F", "F' D' R' D R F"];
+  const dTurns = ["", "D", "D2", "D'"];
+
+  const orientedCount = dEdges.filter(s => c.eo[s] === 0).length;
+  if (orientedCount === 0) {
+    doMove("F' R' D' R D F");
+  }
+
+  let found: { dt: string; alg: string } | null = null;
+  for (const dt of dTurns) {
+    for (const alg of algs) {
+      const test = c.clone();
+      if (dt) test.move(dt);
+      test.move(alg);
+      if (dEdges.every(s => test.eo[s] === 0)) {
+        found = { dt, alg };
+        break;
+      }
+    }
+    if (found) break;
+  }
+
+  if (found) {
+    if (found.dt) doMove(found.dt);
+    doMove(found.alg);
+  }
+}
+
+function solveYellowEdges(c: any, moves: string[]): void {
+  function doMove(m: string): void {
+    if (!m) return;
+    for (const p of m.trim().split(/\s+/)) {
+      if (p) {
+        c.move(p);
+        moves.push(p);
+      }
+    }
+  }
+
+  const dEdges = [4, 5, 6, 7];
+  const isEdgesSolved = (cube: any) => dEdges.every(s => cube.ep[s] === s);
+
+  const dTurns = ["", "D", "D2", "D'"];
+  for (const dt of dTurns) {
+    const test = c.clone();
+    if (dt) test.move(dt);
+    if (isEdgesSolved(test)) {
+      if (dt) doMove(dt);
+      return;
+    }
+  }
+
+  const sunes = [
+    "R' D' R D' R' D2 R D'",
+    "F' D' F D' F' D2 F D'",
+    "L' D' L D' L' D2 L D'",
+    "B' D' B D' B' D2 B D'"
+  ];
+
+  for (const sune of sunes) {
+    for (const dt of dTurns) {
+      const test = c.clone();
+      test.move(sune);
+      if (dt) test.move(dt);
+      if (isEdgesSolved(test)) {
+        doMove(sune);
+        if (dt) doMove(dt);
+        return;
+      }
+    }
+  }
+
+  for (const s1 of sunes) {
+    for (const s2 of sunes) {
+      for (const dt of dTurns) {
+        const test = c.clone();
+        test.move(s1);
+        test.move(s2);
+        if (dt) test.move(dt);
+        if (isEdgesSolved(test)) {
+          doMove(s1);
+          doMove(s2);
+          if (dt) doMove(dt);
+          return;
+        }
+      }
+    }
+  }
+}
+
+function solveYellowCornersPermutation(c: any, moves: string[]): void {
+  function doMove(m: string): void {
+    if (!m) return;
+    for (const p of m.trim().split(/\s+/)) {
+      if (p) {
+        c.move(p);
+        moves.push(p);
+      }
+    }
+  }
+
+  const dCorners = [4, 5, 6, 7];
+  const isCornersPermuted = (cube: any) => dCorners.every(s => cube.cp[s] === s);
+
+  if (isCornersPermuted(c)) return;
+
+  const niklasAlgs = [
+    "D R D' L' D R' D' L",
+    "D' L' D R D' L D R'",
+    "D F D' B' D F' D' B",
+    "D B D' F' D B' D' F",
+    "D L D' R' D L' D' R"
+  ];
+
+  for (const alg of niklasAlgs) {
+    const test = c.clone();
+    test.move(alg);
+    if (isCornersPermuted(test)) {
+      doMove(alg);
+      return;
+    }
+  }
+
+  for (const a1 of niklasAlgs) {
+    for (const a2 of niklasAlgs) {
+      const test = c.clone();
+      test.move(a1);
+      test.move(a2);
+      if (isCornersPermuted(test)) {
+        doMove(a1);
+        doMove(a2);
+        return;
+      }
+    }
+  }
+}
+
+function solveYellowCornersOrientation(c: any, moves: string[]): void {
+  function doMove(m: string): void {
+    if (!m) return;
+    for (const p of m.trim().split(/\s+/)) {
+      if (p) {
+        c.move(p);
+        moves.push(p);
+      }
+    }
+  }
+
+  const dCorners = [4, 5, 6, 7];
+  if (dCorners.every(s => c.co[s] === 0)) return;
+
+  const twistTrigger = "R U R' U' R U R' U'";
+
+  for (let i = 0; i < 4; i++) {
+    let safety = 0;
+    while (c.co[4] !== 0 && safety < 3) {
+      doMove(twistTrigger);
+      safety++;
+    }
+    if (i < 3) {
+      doMove("D");
+    }
+  }
+
+  const dTurns = ["", "D", "D2", "D'"];
+  for (const dt of dTurns) {
+    const test = c.clone();
+    if (dt) test.move(dt);
+    if (test.isSolved()) {
+      if (dt) doMove(dt);
+      return;
+    }
+  }
+}
+
 /**
- * Solve using the human Layer-by-Layer (LBL) State Machine with authentic step-by-step reasons.
+ * Fallback mapping if human solver does not complete
  */
-export function solveWithHumanLBL(
-  initialState: CubeState,
-  lang: AppLanguage = 'en'
-): SolutionStep[] {
+function solveWithOptimalFallbackLBL(initialState: CubeState, lang: AppLanguage): SolutionStep[] {
   const optimalSteps = solveWithKociemba(initialState);
   if (optimalSteps.length === 0) return [];
-
   const total = optimalSteps.length;
   const result: SolutionStep[] = [];
-  let curr = initialState;
 
   for (let i = 0; i < total; i++) {
     const s = optimalSteps[i];
-    curr = applyMove(curr, s.move);
-
-    // Map progress smoothly across the 7 LBL stages
     const progressRatio = (i + 1) / total;
     let stageIndex = 0;
-    if (progressRatio <= 0.15) {
-      stageIndex = 0; // Stage 1: White Cross
-    } else if (progressRatio <= 0.35) {
-      stageIndex = 1; // Stage 2: First Layer Corners
-    } else if (progressRatio <= 0.55) {
-      stageIndex = 2; // Stage 3: Second Layer Edges
-    } else if (progressRatio <= 0.70) {
-      stageIndex = 3; // Stage 4: Top Yellow Cross
-    } else if (progressRatio <= 0.82) {
-      stageIndex = 4; // Stage 5: Yellow Edges Alignment
-    } else if (progressRatio <= 0.92) {
-      stageIndex = 5; // Stage 6: Yellow Corners Permutation
-    } else {
-      stageIndex = 6; // Stage 7: Yellow Corners Orientation & Finish
-    }
+    if (progressRatio <= 0.15) stageIndex = 0;
+    else if (progressRatio <= 0.35) stageIndex = 1;
+    else if (progressRatio <= 0.55) stageIndex = 2;
+    else if (progressRatio <= 0.70) stageIndex = 3;
+    else if (progressRatio <= 0.82) stageIndex = 4;
+    else if (progressRatio <= 0.92) stageIndex = 5;
+    else stageIndex = 6;
 
     const stageDef = LBL_STAGES[stageIndex];
     const subStages = stageDef.subStages[lang] || stageDef.subStages.en;
@@ -522,7 +862,6 @@ export function solveWithHumanLBL(
     const tip = stageDef.tips[lang] || stageDef.tips.en;
     const phaseName = stageDef.name[lang] || stageDef.name.en;
     const algName = stageDef.algorithms[i % stageDef.algorithms.length];
-
     const localizedAnalogy = getLocalizedAnalogy(s.move, lang);
 
     result.push({
@@ -538,40 +877,23 @@ export function solveWithHumanLBL(
       description: localizedAnalogy || s.description,
     });
   }
-
   return result;
 }
 
-/**
- * Solve using the Advanced CFOP (Fridrich) Method with authentic 4-phase speedcubing analysis.
- */
-export function solveWithHumanCFOP(
-  initialState: CubeState,
-  lang: AppLanguage = 'en'
-): SolutionStep[] {
+function solveWithOptimalFallbackCFOP(initialState: CubeState, lang: AppLanguage): SolutionStep[] {
   const optimalSteps = solveWithKociemba(initialState);
   if (optimalSteps.length === 0) return [];
-
   const total = optimalSteps.length;
   const result: SolutionStep[] = [];
-  let curr = initialState;
 
   for (let i = 0; i < total; i++) {
     const s = optimalSteps[i];
-    curr = applyMove(curr, s.move);
-
-    // Map progress across CFOP (Cross -> F2L -> OLL -> PLL)
     const progressRatio = (i + 1) / total;
     let stageIndex = 0;
-    if (progressRatio <= 0.20) {
-      stageIndex = 0; // Cross
-    } else if (progressRatio <= 0.60) {
-      stageIndex = 1; // F2L
-    } else if (progressRatio <= 0.82) {
-      stageIndex = 2; // OLL
-    } else {
-      stageIndex = 3; // PLL
-    }
+    if (progressRatio <= 0.20) stageIndex = 0;
+    else if (progressRatio <= 0.60) stageIndex = 1;
+    else if (progressRatio <= 0.82) stageIndex = 2;
+    else stageIndex = 3;
 
     const stageDef = CFOP_STAGES[stageIndex];
     const subStages = stageDef.subStages[lang] || stageDef.subStages.en;
@@ -581,7 +903,6 @@ export function solveWithHumanCFOP(
     const tip = stageDef.tips[lang] || stageDef.tips.en;
     const phaseName = stageDef.name[lang] || stageDef.name.en;
     const algName = stageDef.algorithms[i % stageDef.algorithms.length];
-
     const localizedAnalogy = getLocalizedAnalogy(s.move, lang);
 
     result.push({
@@ -597,8 +918,177 @@ export function solveWithHumanCFOP(
       description: localizedAnalogy || s.description,
     });
   }
-
   return result;
+}
+
+/**
+ * Solve using the human Layer-by-Layer (LBL) State Machine with authentic step-by-step reasons.
+ */
+export function solveWithHumanLBL(
+  initialState: CubeState,
+  lang: AppLanguage = 'en'
+): SolutionStep[] {
+  if (isCubeSolved(initialState)) return [];
+
+  try {
+    const str = cubeStateToKociembaString(initialState);
+    const c = Cube.fromString(str);
+
+    const stageData: { stageIdx: number; moves: string[] }[] = [];
+    const stages = [
+      solveCross,
+      solveCorners,
+      solveMiddleEdges,
+      solveYellowCross,
+      solveYellowEdges,
+      solveYellowCornersPermutation,
+      solveYellowCornersOrientation,
+    ];
+
+    for (let sIdx = 0; sIdx < stages.length; sIdx++) {
+      const rawMoves: string[] = [];
+      stages[sIdx](c, rawMoves);
+      const clean = simplifyMoves(rawMoves);
+      stageData.push({ stageIdx: sIdx, moves: clean });
+    }
+
+    if (c.isSolved()) {
+      const totalSteps = stageData.reduce((acc, st) => acc + st.moves.length, 0);
+      const result: SolutionStep[] = [];
+      let globalIdx = 0;
+
+      for (const st of stageData) {
+        const stageDef = LBL_STAGES[st.stageIdx];
+        const subStages = stageDef.subStages[lang] || stageDef.subStages.en;
+        const tip = stageDef.tips[lang] || stageDef.tips.en;
+        const phaseName = stageDef.name[lang] || stageDef.name.en;
+        const reasonFn = stageDef.reasons[lang] || stageDef.reasons.en;
+
+        for (let mIdx = 0; mIdx < st.moves.length; mIdx++) {
+          const move = st.moves[mIdx];
+          const { face, turns } = parseMove(move);
+          const detail = MOVE_DETAILS[move] || {
+            desc: `Turn ${face} face ${turns === 2 ? '180°' : turns === 1 ? 'clockwise' : 'counter-clockwise'}`,
+            voice: `Turn ${face} face`,
+          };
+          const localizedAnalogy = getLocalizedAnalogy(move, lang) || detail.desc;
+          const subStage = subStages[mIdx % subStages.length];
+          const algName = stageDef.algorithms[mIdx % stageDef.algorithms.length];
+          const reason = reasonFn(move, mIdx, st.moves.length);
+
+          result.push({
+            id: `lbl-step-${globalIdx}-${move}`,
+            stepIndex: globalIdx,
+            totalSteps,
+            move,
+            notation: move,
+            face,
+            turns,
+            description: localizedAnalogy,
+            voiceText: detail.voice,
+            phase: phaseName,
+            subStage,
+            reason,
+            tip,
+            algorithmName: algName,
+          });
+          globalIdx++;
+        }
+      }
+      return result;
+    }
+  } catch (err) {
+    console.warn('Human LBL solver exception, using fallback:', err);
+  }
+
+  return solveWithOptimalFallbackLBL(initialState, lang);
+}
+
+/**
+ * Solve using the Advanced CFOP (Fridrich) Method with authentic 4-phase speedcubing analysis.
+ */
+export function solveWithHumanCFOP(
+  initialState: CubeState,
+  lang: AppLanguage = 'en'
+): SolutionStep[] {
+  if (isCubeSolved(initialState)) return [];
+
+  try {
+    const str = cubeStateToKociembaString(initialState);
+    const c = Cube.fromString(str);
+
+    const phaseMoves: { phaseIdx: number; moves: string[] }[] = [
+      { phaseIdx: 0, moves: [] },
+      { phaseIdx: 1, moves: [] },
+      { phaseIdx: 2, moves: [] },
+      { phaseIdx: 3, moves: [] },
+    ];
+
+    const raw0: string[] = []; solveCross(c, raw0);
+    phaseMoves[0].moves = simplifyMoves(raw0);
+
+    const raw1: string[] = []; solveCorners(c, raw1);
+    const raw2: string[] = []; solveMiddleEdges(c, raw2);
+    phaseMoves[1].moves = simplifyMoves([...raw1, ...raw2]);
+
+    const raw3: string[] = []; solveYellowCross(c, raw3);
+    const raw4: string[] = []; solveYellowEdges(c, raw4);
+    phaseMoves[2].moves = simplifyMoves([...raw3, ...raw4]);
+
+    const raw5: string[] = []; solveYellowCornersPermutation(c, raw5);
+    const raw6: string[] = []; solveYellowCornersOrientation(c, raw6);
+    phaseMoves[3].moves = simplifyMoves([...raw5, ...raw6]);
+
+    if (c.isSolved()) {
+      const totalSteps = phaseMoves.reduce((acc, p) => acc + p.moves.length, 0);
+      const result: SolutionStep[] = [];
+      let globalIdx = 0;
+
+      for (const p of phaseMoves) {
+        const stageDef = CFOP_STAGES[p.phaseIdx];
+        const subStages = stageDef.subStages[lang] || stageDef.subStages.en;
+        const tip = stageDef.tips[lang] || stageDef.tips.en;
+        const phaseName = stageDef.name[lang] || stageDef.name.en;
+        const reasonFn = stageDef.reasons[lang] || stageDef.reasons.en;
+
+        for (let mIdx = 0; mIdx < p.moves.length; mIdx++) {
+          const move = p.moves[mIdx];
+          const { face, turns } = parseMove(move);
+          const detail = MOVE_DETAILS[move] || {
+            desc: `Turn ${face} face ${turns === 2 ? '180°' : turns === 1 ? 'clockwise' : 'counter-clockwise'}`,
+            voice: `Turn ${face} face`,
+          };
+          const localizedAnalogy = getLocalizedAnalogy(move, lang) || detail.desc;
+          const subStage = subStages[mIdx % subStages.length];
+          const algName = stageDef.algorithms[mIdx % stageDef.algorithms.length];
+          const reason = reasonFn(move, mIdx, p.moves.length);
+
+          result.push({
+            id: `cfop-step-${globalIdx}-${move}`,
+            stepIndex: globalIdx,
+            totalSteps,
+            move,
+            notation: move,
+            face,
+            turns,
+            description: localizedAnalogy,
+            voiceText: detail.voice,
+            phase: phaseName,
+            subStage,
+            reason,
+            tip,
+            algorithmName: algName,
+          });
+          globalIdx++;
+        }
+      }
+      return result;
+    }
+  } catch (err) {
+    console.warn('Human CFOP solver exception, using fallback:', err);
+  }
+
+  return solveWithOptimalFallbackCFOP(initialState, lang);
 }
 
 /**
@@ -614,3 +1104,4 @@ export function solveWithHumanStateMachine(
   }
   return solveWithHumanLBL(initialState, lang);
 }
+
